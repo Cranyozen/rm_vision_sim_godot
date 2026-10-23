@@ -1,0 +1,19 @@
+# Godot
+.godot/
+.godot_user_data/
+.godot_config/
+
+# Editor / OS
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local logs and captures
+logs/
+tests/*.png*
+
+# Python
+__pycache__/
+*.pyc
+.venv/

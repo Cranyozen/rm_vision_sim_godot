@@ -1,0 +1,2 @@
+# Documentation images are only referenced by Markdown; keep them out of
+# Godot's import pipeline so no .import artefacts are generated here.
