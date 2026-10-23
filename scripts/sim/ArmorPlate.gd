@@ -31,13 +31,6 @@ const ARMOR_MODELS := {
 	"large": preload("res://assets/models/armor/armor_large.glb"),
 }
 
-## Which numbers the official models carry (Bevy's sticker slot tables:
-## small = B,G,O,2,3,4,5 and large = 1,3,4,5,B).
-const AVAILABLE_NUMBERS := {
-	"small": ["2", "3", "4", "5", "B", "G", "O"],
-	"large": ["1", "3", "4", "5", "B"],
-}
-
 ## Height of the sticker plane above the module origin (front panel).
 const STICKER_Z := 0.0096
 

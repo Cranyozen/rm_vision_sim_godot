@@ -200,10 +200,6 @@ func get_camera_mount() -> Node3D:
 	return _camera_mount
 
 
-func get_gimbal_pivot() -> Node3D:
-	return _gimbal_yaw
-
-
 func _add_box(parent: Node3D, size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()

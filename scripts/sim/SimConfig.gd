@@ -42,16 +42,3 @@ static func feed_intrinsics() -> Dictionary:
 static func vertical_fov_deg() -> float:
 	var k := feed_intrinsics()
 	return rad_to_deg(2.0 * atan(float(FEED_HEIGHT) / (2.0 * float(k["fy"]))))
-
-## Real AM01 small / AM11 large armour envelope (DOCS/27 STEP, competition
-## spec). x = width, y = height, z = depth. The rendered game module extracted
-## from the Bevy assets is only 19 mm deep; see docs/ARCHITECTURE.md §4.1.
-static func armor_dimensions(size_name: String) -> Vector3:
-	if size_name == "large":
-		return Vector3(0.2360, 0.1277, 0.0520)
-	return Vector3(0.1410, 0.1267, 0.0515)
-
-static func team_color(team: String) -> Color:
-	if team == "blue":
-		return Color(0.05, 0.25, 1.0)
-	return Color(1.0, 0.06, 0.04)
