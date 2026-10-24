@@ -10,7 +10,7 @@ var _preview: TextureRect
 var _fullscreen: Control
 var _fullscreen_feed: TextureRect
 var _target_count := 0
-var _feed_viewport: SubViewport
+var _feed_texture: Texture2D
 var _ego: EgoRig
 
 
@@ -19,20 +19,24 @@ func _ready() -> void:
 		_build_ui()
 
 
-func setup(feed_viewport: SubViewport, ego: EgoRig, target_count: int) -> void:
+## `feed_texture` is the already-cropped 1280x1024 feed (Main.get_feed_texture).
+func setup(feed_texture: Texture2D, ego: EgoRig, target_count: int) -> void:
 	if _status == null:
 		_build_ui()
-	_feed_viewport = feed_viewport
+	_feed_texture = feed_texture
 	_ego = ego
 	_target_count = target_count
-	var tex := feed_viewport.get_texture()
-	_preview.texture = tex
-	_fullscreen_feed.texture = tex
+	_preview.texture = feed_texture
+	_fullscreen_feed.texture = feed_texture
 	_refresh_status(0.0, 0.0, 0.0, 0.0, false, false, 4.0)
 
 
-func set_stats(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: float, self_fpv: bool, free_cam := false, free_speed := 4.0) -> void:
-	_refresh_status(fps, frame_ms, yaw_deg, pitch_deg, self_fpv, free_cam, free_speed)
+func set_stats(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: float,
+		self_fpv: bool, free_cam := false, free_speed := 4.0,
+		chassis_pos := Vector3.ZERO, chassis_speed := 0.0,
+		follow_gimbal := true, view := "THIRD-PERSON", ros_status := "") -> void:
+	_refresh_status(fps, frame_ms, yaw_deg, pitch_deg, self_fpv, free_cam, free_speed,
+		chassis_pos, chassis_speed, follow_gimbal, view, ros_status)
 
 
 func toggle_feed_fullscreen() -> void:
@@ -49,17 +53,24 @@ func is_feed_fullscreen() -> bool:
 	return _fullscreen.visible
 
 
-func _refresh_status(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: float, self_fpv: bool, free_cam := false, free_speed := 4.0) -> void:
+func _refresh_status(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: float,
+		self_fpv: bool, free_cam := false, free_speed := 4.0,
+		chassis_pos := Vector3.ZERO, chassis_speed := 0.0,
+		follow_gimbal := true, view := "THIRD-PERSON", ros_status := "") -> void:
 	var preset := _ego.preset if _ego != null else "?"
 	var fpv := "ON" if self_fpv else "OFF"
-	var cam := "FREE  %.1f m/s  (WASD / E F)" % free_speed if free_cam else "follow (F4 = free)"
+	var cam := "FREE  %.1f m/s  (WASD / E F)" % free_speed if free_cam else "camera follow (F4 = free)"
+	var drive := "follow gimbal (C = toggle)" if follow_gimbal else "independent (C = toggle)"
 	_status.text = (
-		"RM VISION SIM · PHASE 1\n"
-		+ "Field: 1v1    Ego: %s\n" % preset
-		+ "FPS %5.1f    frame %5.2f ms\n" % [fps, frame_ms]
+		"RM VISION SIM · PHASE 2\n"
+		+ "Field: 1v1   Ego: %s   View: %s\n" % [preset, view]
+		+ "FPS %5.1f   frame %5.2f ms\n" % [fps, frame_ms]
 		+ "Gimbal  yaw %+6.1f°   pitch %+6.1f°\n" % [yaw_deg, pitch_deg]
-		+ "Targets %d    feed 1280×1024    self-FPV %s\n" % [_target_count, fpv]
-		+ "Camera: %s" % cam
+		+ "Chassis x %+5.2f  z %+5.2f   %4.1f m/s\n" % [chassis_pos.x, chassis_pos.z, chassis_speed]
+		+ "Drive: %s\n" % drive
+		+ "Targets %d   feed 1280×1024   self-FPV %s\n" % [_target_count, fpv]
+		+ "Camera: %s\n" % cam
+		+ (ros_status if ros_status != "" else "ROS: off")
 	)
 
 
@@ -76,8 +87,8 @@ func _build_ui() -> void:
 	status_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	status_panel.offset_left = 16
 	status_panel.offset_top = 16
-	status_panel.offset_right = 410
-	status_panel.offset_bottom = 198
+	status_panel.offset_right = 440
+	status_panel.offset_bottom = 262
 	status_panel.add_theme_stylebox_override("panel", _panel_style())
 	root.add_child(status_panel)
 	_status = Label.new()
@@ -92,7 +103,7 @@ func _build_ui() -> void:
 	controls_panel.offset_left = -336
 	controls_panel.offset_top = 16
 	controls_panel.offset_right = -16
-	controls_panel.offset_bottom = 246
+	controls_panel.offset_bottom = 316
 	controls_panel.add_theme_stylebox_override("panel", _panel_style())
 	root.add_child(controls_panel)
 	var controls := Label.new()
@@ -101,14 +112,17 @@ func _build_ui() -> void:
 	controls.text = (
 		"Q / E    gimbal yaw\n"
 		+ "R / F    gimbal pitch\n"
+		+ "W / S    chassis fwd / back\n"
+		+ "A / D    chassis strafe\n"
+		+ "Shift    chassis boost\n"
+		+ "C        chassis follow gimbal\n"
+		+ "F3       operator FPV (mouse aim)\n"
 		+ "F1       feed fullscreen\n"
-		+ "F2       self in FPV\n"
-		+ "F3       debug camera\n"
-		+ "F4       free camera\n"
-		+ "WASD     free-cam move\n"
-		+ "E / F    free-cam up / down\n"
+		+ "F2       self in feed\n"
+		+ "F4       free camera (WASD, E/F up)\n"
 		+ "Wheel    free-cam speed\n"
 		+ "F5       reset pose\n"
+		+ "F6       ROS publish on / off\n"
 		+ "Esc      back / quit"
 	)
 	controls_panel.add_child(controls)
@@ -127,7 +141,7 @@ func _build_ui() -> void:
 	pv.add_theme_constant_override("separation", 4)
 	_preview_panel.add_child(pv)
 	var plabel := Label.new()
-	plabel.text = "FEED 1280×1024  ·  viewport preview (Phase 1)"
+	plabel.text = "FEED 1280×1024  ·  ROS /image_raw + /image_raw/compressed"
 	plabel.add_theme_font_size_override("font_size", 12)
 	plabel.add_theme_color_override("font_color", Color(0.65, 0.85, 0.75))
 	pv.add_child(plabel)

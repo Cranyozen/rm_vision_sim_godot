@@ -8,7 +8,10 @@ extends Node3D
 ##   └─ VehicleModel / chassis visual
 ##   └─ GimbalYaw (world Y)
 ##        └─ GimbalPitch (local X)  ← vehicle.glb "GIMBAL" node
-##             └─ CameraMount      ← camera_link pose
+##             ├─ GimbalVisual     ← meshes only; static -25 deg install-pitch
+##             │                       compensation (SimConfig.GIMBAL_REST_PITCH_DEG)
+##             ├─ CAM_DIRECTION / SHOT_DIRECTION (CAD markers, not compensated)
+##             └─ CameraMount      ← vehicle.glb "CAM_DIRECTION" pose (default)
 
 signal gimbal_changed(yaw_deg: float, pitch_deg: float)
 
@@ -27,12 +30,14 @@ var preset := "vehicle"                 ## vehicle | infantry_light | fallback
 var chassis_yaw_deg := 0.0
 var gimbal_yaw_deg := 0.0
 var gimbal_pitch_deg := 0.0
-var camera_mount_preset := "model"      ## model | qyg
+var camera_mount_preset := SimConfig.CAMERA_MOUNT_PRESET   ## gimbal | cam_direction | qyg | model
 var camera_mount_offset := SimConfig.VEHICLE_CAMERA_OFFSET
 var camera_mount_rpy := Vector3.ZERO
+var camera_yaw_offset_deg := SimConfig.CAMERA_YAW_OFFSET_DEG
 
 var _gimbal_yaw: Node3D
 var _gimbal_pitch: Node3D
+var _gimbal_visual: Node3D
 var _camera_mount: Node3D
 var _model_root: Node3D
 
@@ -106,11 +111,34 @@ func _build_vehicle() -> void:
 	gimbal.position = Vector3.ZERO
 	gimbal.rotation = Vector3.ZERO
 	_gimbal_pitch = gimbal
+	_build_gimbal_visual(gimbal)
 
 	_camera_mount = Node3D.new()
 	_camera_mount.name = "CameraMount"
-	_camera_mount.transform = _make_camera_mount_transform()
+	_camera_mount.transform = _make_camera_mount_transform(gimbal)
 	gimbal.add_child(_camera_mount)
+
+
+## The imported head is authored 25 deg nose-up (see
+## SimConfig.GIMBAL_REST_PITCH_DEG).  Every visual child of the pitch node is
+## reparented under a pivot that cancels that angle; the CAD markers stay
+## directly on the pitch node so the camera keeps the orientation the model
+## authored for it.
+func _build_gimbal_visual(pitch_node: Node3D) -> void:
+	var visual := Node3D.new()
+	visual.name = "GimbalVisual"
+	visual.position = SimConfig.GIMBAL_VISUAL_OFFSET
+	visual.rotation_degrees = Vector3(SimConfig.GIMBAL_REST_PITCH_DEG, 0.0, 0.0)
+	pitch_node.add_child(visual)
+	for child in pitch_node.get_children():
+		if child == visual:
+			continue
+		if String(child.name) in SimConfig.GIMBAL_MARKER_NODES:
+			continue
+		# keep_global_transform=false: the child keeps its authored local pose
+		# and therefore inherits the compensation, which is the point.
+		child.reparent(visual, false)
+	_gimbal_visual = visual
 
 
 func _build_infantry_light() -> void:
@@ -175,10 +203,62 @@ func _build_fallback() -> void:
 	_gimbal_pitch.add_child(_camera_mount)
 
 
-func _make_camera_mount_transform() -> Transform3D:
+func _make_camera_mount_transform(pivot: Node3D) -> Transform3D:
+	# The QYG calibration measured the optical axis along gimbal_link +X, i.e.
+	# exactly the gimbal's forward axis.  The default mount therefore keeps the
+	# model's eye position (CAM_DIRECTION translation) but uses the gimbal
+	# orientation, so the FPV and the feed look where the robot aims instead of
+	# 3.7 deg to the left of it.
+	if camera_mount_preset == "gimbal":
+		var origin := _camera_origin_from_model(pivot)
+		var yaw := deg_to_rad(camera_yaw_offset_deg)
+		return Transform3D(Basis(Vector3.UP, yaw), origin)
 	if camera_mount_preset == "qyg":
+		# Kept for comparing against the real robot calibration.  Note: this
+		# preset feeds a ROS camera_link pose to a Godot camera and does not
+		# include the camera_link -> camera_optical_frame basis; treat it as an
+		# experiment, not a calibrated mount.
 		return Transform3D(Basis.from_euler(SimConfig.QYG_CAMERA_RPY), SimConfig.QYG_CAMERA_OFFSET)
+	if camera_mount_preset == "cam_direction":
+		var marker := cam_direction_node(pivot)
+		if marker != null:
+			return cam_direction_transform(_marker_local_transform(pivot, marker))
+		push_warning("EgoRig: %s node not found, falling back to the gimbal mount" % SimConfig.CAM_DIRECTION_NODE)
+		return Transform3D(Basis(Vector3.UP, deg_to_rad(camera_yaw_offset_deg)),
+			_camera_origin_from_model(pivot))
 	return Transform3D(Basis.from_euler(camera_mount_rpy), camera_mount_offset)
+
+
+## Eye position in gimbal space, taken from the model's CAM_DIRECTION marker
+## when available (its translation already includes the gimbal arm).
+func _camera_origin_from_model(pivot: Node3D) -> Vector3:
+	var marker := cam_direction_node(pivot)
+	if marker == null:
+		return SimConfig.VEHICLE_CAMERA_OFFSET
+	return _marker_local_transform(pivot, marker).origin
+
+
+func _marker_local_transform(pivot: Node3D, marker: Node3D) -> Transform3D:
+	if marker.get_parent() == pivot:
+		return marker.transform
+	return pivot.global_transform.affine_inverse() * marker.global_transform
+
+
+## The model's "CAM_DIRECTION" marker, in `pivot`'s space (the gimbal pitch
+## node). Returns null when the active model does not ship one.
+static func cam_direction_node(pivot: Node) -> Node3D:
+	if pivot == null:
+		return null
+	return pivot.find_child(SimConfig.CAM_DIRECTION_NODE, true, false) as Node3D
+
+
+## Convert a "CAM_DIRECTION" local transform into a Godot camera pose: the
+## marker's -Y is the view direction and its -Z is up, while a Camera3D looks
+## down -Z with +Y up. The exported basis also carries a 0.001 scale, which is
+## stripped before it is used as a camera orientation.
+static func cam_direction_transform(marker: Transform3D) -> Transform3D:
+	var correction := Basis.from_euler(SimConfig.CAM_DIRECTION_TO_CAMERA_RPY)
+	return Transform3D(marker.basis.orthonormalized() * correction, marker.origin)
 
 
 func set_gimbal(yaw_deg: float, pitch_deg: float) -> void:
@@ -198,6 +278,19 @@ func set_chassis_yaw(yaw_deg: float) -> void:
 
 func get_camera_mount() -> Node3D:
 	return _camera_mount
+
+
+## The gimbal pitch joint (yaw + pitch, no visual install-pitch compensation).
+## This is the ROS `gimbal_link` frame: its global pose is
+## odom -> gimbal_link. Null only before the rig is built.
+func get_gimbal_link() -> Node3D:
+	return _gimbal_pitch
+
+
+## Pivot that carries the static install-pitch compensation of the head mesh
+## (see SimConfig.GIMBAL_REST_PITCH_DEG).  Null for rigs without a model mesh.
+func get_gimbal_visual() -> Node3D:
+	return _gimbal_visual
 
 
 func _add_box(parent: Node3D, size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:

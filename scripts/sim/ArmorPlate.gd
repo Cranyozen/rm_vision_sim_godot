@@ -31,8 +31,23 @@ const ARMOR_MODELS := {
 	"large": preload("res://assets/models/armor/armor_large.glb"),
 }
 
+## Measured envelope of the extracted game modules (width, height, depth) in
+## metres; see docs/ARCHITECTURE.md §4.1. The origin is the bbox centre and
+## +Z is the front face, so the strike-face plane is at depth * 0.5.
+const ARMOR_ENVELOPES := {
+	"small": Vector3(0.1410, 0.1299, 0.0192),
+	"large": Vector3(0.2360, 0.1322, 0.0192),
+}
+
 ## Height of the sticker plane above the module origin (front panel).
 const STICKER_Z := 0.0096
+
+## Centre of the strike face relative to the module origin, along local +Z.
+const STRIKE_FACE_Z := STICKER_Z
+
+## TargetRig supplies the full installation pose (yaw + the 75 deg mounting
+## angle), so this module must not add its own mount tilt on top of it.
+var external_pose := false
 
 ## The real module is installed at 75 deg to the ground: the top edge leans
 ## back, so the front normal points 15 deg upward. Rotating about X by -15 deg
@@ -41,8 +56,25 @@ const MOUNT_TILT_DEG := 15.0
 
 
 func _ready() -> void:
-	rotation.x = -deg_to_rad(MOUNT_TILT_DEG)
+	if not external_pose:
+		rotation.x = -deg_to_rad(MOUNT_TILT_DEG)
 	_build()
+
+
+## Measured envelope for an armour size name, with a small fallback so an
+## unknown name never crashes a target build.
+static func envelope_for(size_name: String) -> Vector3:
+	return ARMOR_ENVELOPES.get(size_name, ARMOR_ENVELOPES["small"])
+
+
+## Vertical distance from the module centre down to its lowest edge when the
+## module is installed at `tilt_deg` to the ground. TargetRig uses this for the
+## S124/S125 lower-edge checks (the 15 deg lean also drops the front/back
+## corners by `depth / 2 * sin(tilt)`).
+static func lower_edge_drop(size_name: String, tilt_deg := MOUNT_TILT_DEG) -> float:
+	var envelope := envelope_for(size_name)
+	var tilt := deg_to_rad(tilt_deg)
+	return envelope.y * 0.5 * cos(tilt) + envelope.z * 0.5 * sin(tilt)
 
 
 func _build() -> void:

@@ -1,0 +1,30 @@
+# Foxglove bridge — low-latency motion/TF profile.
+#
+# Websocket: ws://localhost:8767 (host networking).
+#
+# This profile advertises NO camera streams. A slow Foxglove client (busy
+# browser, many panels, background tab) will otherwise queue 60 Hz JPEG plus
+# 350 Hz TF in the bridge's send buffer, and the 3D panel starts reporting
+# stale transforms (500 ms+). With TF/serial/commands only the websocket load
+# is ~40 KB/s, so the transform tree stays fresh even on a loaded desktop.
+#
+# Use docker/run.sh foxglove-tf for motion/TF debugging and docker/run.sh
+# foxglove (port 8765) when you also need the camera image.
+/**:
+  ros__parameters:
+    port: 8767
+    address: 0.0.0.0
+    topic_whitelist:
+      - "/tf"
+      - "/tf_static"
+      - "/serial/receive"
+      - "/camera_info"
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+      - "/rosout"
+    client_topic_whitelist:
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+    max_qos_depth:
+    # 4 MB is plenty for TF-only; a smaller bound limits client-side backlog.
+    send_buffer_limit: 4000000

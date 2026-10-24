@@ -1,0 +1,45 @@
+diff --git a/rclgd/CMakeLists.txt b/rclgd/CMakeLists.txt
+index 2e53b56..597c4f1 100644
+--- a/rclgd/CMakeLists.txt
++++ b/rclgd/CMakeLists.txt
+@@ -18,10 +18,23 @@ find_package(ament_cmake REQUIRED)
+ # retarget the submodule, edit this line, and refresh the SHA512 pins below
+ # from the release's SHA512-SUMS.txt — plain variables (not CACHE), so edits
+ # always take effect on rebuild.
+-set(GODOT_VERSION "4.7.1")
+-set(GODOT_SHA512_LINUX_X86_64 "4ccdab7a48eeccbe8819a2fc1f6262f8d72065d98601bcb3743fcbd7ebd39f373758a788ee3293a05ec5b2c48538266c437404312e372225cd2df273945a2de9")
+-set(GODOT_SHA512_LINUX_ARM64 "de64efe4d936ac0403769e078a73d961a9c647cab04168c5fb5a7fe33728e200a67324ed99368eeb27964e205e72a61e48efb63b52d5de34d12dd6a95ca0fc45")
+-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/godot-cpp/gdextension/extension_api.json" _gdcpp_api_head LIMIT 2048)
++set(GODOT_VERSION "4.7.2")
++set(GODOT_SHA512_LINUX_X86_64 "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65")
++set(GODOT_SHA512_LINUX_ARM64 "dd59918da086bd49bde2f5450b5e567ff8650cbde9abbd7b8f4ca1197ff8c609baa38834666d032deafb47099078d7822279e2a0e06e5665745468f26533e7e2")
++# godot-cpp >= 4.6 ships one API JSON per engine minor version
++# (gdextension/extension_api-<major>-<minor>.json) and no longer keeps the
++# unversioned "extension_api.json". Resolve the file matching GODOT_VERSION,
++# falling back to the legacy name for older godot-cpp checkouts.
++set(_gdcpp_api_file "${CMAKE_CURRENT_SOURCE_DIR}/godot-cpp/gdextension/extension_api.json")
++if(NOT EXISTS "${_gdcpp_api_file}")
++    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" _unused "${GODOT_VERSION}")
++    set(_gdcpp_api_file
++        "${CMAKE_CURRENT_SOURCE_DIR}/godot-cpp/gdextension/extension_api-${CMAKE_MATCH_1}-${CMAKE_MATCH_2}.json")
++    if(NOT EXISTS "${_gdcpp_api_file}")
++        message(FATAL_ERROR "rclgd: no godot-cpp GDExtension API JSON found for Godot ${GODOT_VERSION}")
++    endif()
++endif()
++file(READ "${_gdcpp_api_file}" _gdcpp_api_head LIMIT 2048)
+ string(REGEX MATCH "\"version_major\"[ \t]*:[ \t]*([0-9]+)" _unused "${_gdcpp_api_head}")
+ set(_gdcpp_api_major "${CMAKE_MATCH_1}")
+ string(REGEX MATCH "\"version_minor\"[ \t]*:[ \t]*([0-9]+)" _unused "${_gdcpp_api_head}")
+@@ -55,6 +68,12 @@ endif()
+ set(_godot_name "Godot_v${GODOT_VERSION}-stable_${_godot_slug}")
+ set(_godot_zip "${CMAKE_CURRENT_BINARY_DIR}/${_godot_name}.zip")
+ message(STATUS "rclgd: providing Godot ${GODOT_VERSION} (${_godot_slug})")
++# Allow offline/deterministic builds: when RCLGD_GODOT_ARCHIVE points at a
++# pre-downloaded release archive, stage it where file(DOWNLOAD) expects it.
++# The hash check below still runs, so a wrong archive is a hard error.
++if(DEFINED ENV{RCLGD_GODOT_ARCHIVE} AND EXISTS "$ENV{RCLGD_GODOT_ARCHIVE}")
++    configure_file("$ENV{RCLGD_GODOT_ARCHIVE}" "${_godot_zip}" COPYONLY)
++endif()
+ file(DOWNLOAD
+     "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${_godot_name}.zip"
+     "${_godot_zip}"

@@ -1,0 +1,23 @@
+diff --git a/rclgd/src/rclgd/ros_timer.cpp b/rclgd/src/rclgd/ros_timer.cpp
+index 3f6e996..629f417 100644
+--- a/rclgd/src/rclgd/ros_timer.cpp
++++ b/rclgd/src/rclgd/ros_timer.cpp
+@@ -1,4 +1,5 @@
+ #include "ros_timer.hpp"
++#include <rclcpp/create_timer.hpp>
+ #include <godot_cpp/core/class_db.hpp>
+ #include <godot_cpp/variant/callable.hpp>
+ 
+@@ -24,7 +25,11 @@ void RosTimer::setup(const std::shared_ptr<rclcpp::Node> &node, double p_seconds
+     // use_sim_time it follows /clock, so timers honor Engine.time_scale and
+     // sim pauses instead of drifting on the OS clock.
+     // p_callable is captured by value for thread safety.
+-    _timer_ptr = node->create_timer(duration, [p_callable]() {
++    // ROS 2 Humble's rclcpp::Node has no create_timer() member (added in
++    // Rolling); the free function with an explicit clock is the equivalent:
++    // it still uses the node clock, so use_sim_time keeps working.
++    _timer_ptr = rclcpp::create_timer(node, node->get_clock(),
++                                      rclcpp::Duration(duration), [p_callable]() {
+         if (p_callable.is_valid()) {
+             // Jump from ROS executor thread back to Godot main thread
+             p_callable.call_deferred();

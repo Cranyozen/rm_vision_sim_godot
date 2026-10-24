@@ -17,3 +17,8 @@ tests/*.png*
 __pycache__/
 *.pyc
 .venv/
+
+# Container-provided rclgd runtime files (created by docker/run.sh, removed on exit)
+addons/rclgd/bin/librclgd.so
+addons/rclgd/bin/rclgd.gdextension
+addons/rclgd/bin/rclgd.gdextension.uid

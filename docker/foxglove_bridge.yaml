@@ -1,0 +1,33 @@
+# Foxglove bridge — default debugging profile.
+#
+# Websocket: ws://localhost:8765 (the container uses host networking).
+# All non-image topics are exposed plus the 60 Hz JPEG stream. Raw /image_raw
+# is deliberately excluded: 1280x1024 rgb8 is 3.9 MB per message (~120 MB/s at
+# 30 Hz) and would flood the websocket and Foxglove Studio. Use
+# foxglove_bridge_full.yaml if you really need raw images.
+#
+# Run it with: docker/run.sh foxglove
+/**:
+  ros__parameters:
+    port: 8765
+    address: 0.0.0.0
+    # Full-match regular expressions (ECMAScript) of topics to advertise.
+    topic_whitelist:
+      - "/image_raw/compressed"
+      - "/camera_info"
+      - "/tf"
+      - "/tf_static"
+      - "/serial/receive"
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+      - "/armor_detector/.*"
+      - "/rosout"
+    # Topics the Foxglove client may publish (teleop / manual gimbal tests).
+    client_topic_whitelist:
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+    # Keep only the newest samples; debugging, not recording.
+    max_qos_depth: 10
+    min_qos_depth: 3
+    # 50 MB buffered per client; enough for several JPEG streams and TF.
+    send_buffer_limit: 50000000

@@ -1,0 +1,18 @@
+# Foxglove bridge — full debugging profile.
+#
+# Same as foxglove_bridge.yaml but WITHOUT a topic whitelist, so raw
+# /image_raw (3.9 MB/message, ~120 MB/s at 30 Hz) and every debug topic are
+# advertised. Use only on localhost / a fast wired link, and prefer the
+# default profile for normal debugging.
+#
+# Run it with: docker/run.sh foxglove-full
+/**:
+  ros__parameters:
+    port: 8766
+    address: 0.0.0.0
+    client_topic_whitelist:
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+    max_qos_depth: 10
+    min_qos_depth: 10
+    send_buffer_limit: 200000000
