@@ -276,6 +276,16 @@ func set_chassis_yaw(yaw_deg: float) -> void:
 	rotation.y = deg_to_rad(yaw_deg)
 
 
+## Switch the camera mount at runtime (Phase 3 scenario camera presets / UI).
+## Only the mount node is re-derived; the rig and gimbal chain are untouched.
+## The feed and FPV cameras copy the mount every frame, so the change is live.
+func set_camera_mount(preset_name: String, yaw_offset_deg: float) -> void:
+	camera_mount_preset = preset_name
+	camera_yaw_offset_deg = yaw_offset_deg
+	if _camera_mount != null and _gimbal_pitch != null:
+		_camera_mount.transform = _make_camera_mount_transform(_gimbal_pitch)
+
+
 func get_camera_mount() -> Node3D:
 	return _camera_mount
 

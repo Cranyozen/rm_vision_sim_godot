@@ -1,0 +1,58 @@
+# RM Vision Sim - Phase 3 scenario: 1v1 with two moving targets.
+#
+# Motion semantics: see the header of 1v1_static.yaml. The two moving targets
+# use only their waypoints (the target `position` default is unused for
+# line / polyline motion); `speed` is metres per second along the path.
+
+schema_version: 1
+name: 1v1_line
+field: rmul2027_1v1
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: vehicle
+  position: [0.0, 0.0, 2.2]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    position: [0.0, 0.0, -1.4]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once
+  - id: t2
+    team: blue
+    armor: small
+    number: "2"
+    yaw_deg: 180.0
+    motion:
+      type: line
+      waypoints:
+        - [-1.8, 0.0, -0.8]
+        - [1.8, 0.0, -0.8]
+      speed: 1.0
+      mode: pingpong
+  - id: t3
+    team: red
+    armor: large
+    number: "1"
+    yaw_deg: 180.0
+    motion:
+      type: line
+      waypoints:
+        - [1.9, 0.0, 0.2]
+        - [-1.9, 0.0, 0.2]
+      speed: 0.7
+      mode: loop

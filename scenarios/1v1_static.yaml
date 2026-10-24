@@ -1,0 +1,74 @@
+# RM Vision Sim - Phase 3 scenario: the Phase 1 static 1v1 target set.
+#
+# Coordinates are Godot world metres (Y up). Angles are degrees; yaw 0 makes a
+# target face -Z (towards the ego); `number` is a string and is kept as one.
+# `armor_layout` group spans stay 0 = auto (derive from the armour size).
+#
+# Motion semantics (shared by all scenario files):
+#   static    no movement.
+#   line      straight segment between the first two waypoints (`once` stops at
+#             the end, `loop` adds the closing segment back to the first
+#             waypoint, `pingpong` reverses at both ends; a line needs >= 2
+#             waypoints).
+#   polyline  the waypoints in order, same once/loop/pingpong rules.
+#   spin      yaw rotates at `spin_deg_s` around the fixed position; `once` is
+#             one full 360 deg turn then stop, `loop` keeps spinning,
+#             `pingpong` sweeps between yaw0 - 180 and yaw0 + 180. Waypoints
+#             are ignored.
+# Waypoint / position Y is kept as authored but ignored at runtime.
+
+schema_version: 1
+name: 1v1_static
+field: rmul2027_1v1
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: vehicle
+  position: [0.0, 0.0, 2.2]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    position: [0.0, 0.0, -1.4]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once
+  - id: t2
+    team: blue
+    armor: small
+    number: "2"
+    position: [-1.5, 0.0, -0.2]
+    yaw_deg: 135.0
+    motion:
+      type: static
+      mode: once
+  - id: t3
+    team: red
+    armor: large
+    number: "1"
+    position: [1.5, 0.0, -0.2]
+    yaw_deg: -135.0
+    motion:
+      type: static
+      mode: once
+  - id: t4
+    team: blue
+    armor: small
+    number: "5"
+    position: [1.9, 0.0, 1.2]
+    yaw_deg: -90.0
+    motion:
+      type: static
+      mode: once

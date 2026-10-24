@@ -1,0 +1,7 @@
+# RM Vision Sim - Phase 3 application configuration.
+#
+# Scenario paths are Godot resource paths. The scenario file itself carries the
+# field, ros, camera, ego and target settings; this file only selects the
+# startup scenario (the UI can switch it at runtime).
+
+scenario: res://scenarios/1v1_static.yaml

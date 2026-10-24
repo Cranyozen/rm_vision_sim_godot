@@ -120,6 +120,43 @@ const FIELD_HALF_EXTENT := 2.5
 const EGO_RADIUS := 0.30
 const CHASSIS_LIMIT := FIELD_HALF_EXTENT - EGO_RADIUS
 
+# --- Phase 3: fields, camera presets ----------------------------------------
+
+## Field identifiers used by scenario YAML (`field:` key) and FieldRegistry.
+const FIELD_1V1 := "rmul2027_1v1"
+const FIELD_3V3 := "rmul2027_3v3"
+const FIELD_FLAT := "flat"
+
+## 1v1: 5.6 x 5.6 m field, 5.0 x 5.0 m playable floor (perimeter collision
+## inner face at +/-2.5 m).
+const FIELD_1V1_HALF_EXTENTS := Vector2(2.5, 2.5)
+## 3v3: 12.6 x 8.6 m field; the visual play surface is authored at y = 0.10,
+## so the field node is shifted down by FIELD_3V3_Y_OFFSET to put it at y = 0.
+## Playable half extents: 12.0 x 8.0 m inside the perimeter wall.
+const FIELD_3V3_HALF_EXTENTS := Vector2(6.0, 4.0)
+const FIELD_3V3_Y_OFFSET := -0.10
+## Flat test field: a generated 20 x 20 m plane for long-range scenarios.
+## No visible walls; the perimeter collision is invisible and the chassis clamp
+## keeps the robot well inside it.
+const FIELD_FLAT_SIZE := Vector2(20.0, 20.0)
+const FIELD_FLAT_HALF_EXTENTS := Vector2(10.0, 10.0)
+
+## Perimeter collision geometry (metres), common to all fields.
+const FIELD_WALL_HEIGHT := 0.42
+const FIELD_WALL_THICKNESS := 0.30
+const FIELD_FLOOR_THICKNESS := 0.10
+
+## Camera presets selectable per scenario (`camera.preset`) and in the UI.
+## "qyg" is the calibrated default (gimbal-aligned mount); "cad" uses the
+## model's own CAM_DIRECTION pose (3.7 deg left yaw, useful for comparison);
+## "qyg_trim" is the gimbal mount plus the scenario's `camera.yaw_offset_deg`,
+## for dialing in a measured optical-axis offset without editing the rig.
+const CAMERA_PRESETS := {
+	"qyg": "gimbal",
+	"cad": "cam_direction",
+	"qyg_trim": "gimbal",
+}
+
 # --- REP-103 robot body frame <-> Godot world -------------------------------
 #
 # The target/robot body frame is the standard RoboMaster one (REP-103):

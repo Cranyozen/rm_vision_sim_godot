@@ -1,0 +1,71 @@
+# RM Vision Sim - Phase 3 scenario: flat 20 x 20 m range, 4-9 m targets.
+#
+# The flat field has no visible walls and a playable half extent of 10 m, so
+# the ego can stand at z = 5.0 m and look at targets 4-9 m away. Motion
+# semantics: see the header of 1v1_static.yaml; `polyline` visits the
+# waypoints in order and `loop` closes the circuit back to the first one.
+
+schema_version: 1
+name: flat_range
+field: flat
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: vehicle
+  position: [0.0, 0.0, 5.0]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    yaw_deg: 180.0
+    motion:
+      type: line
+      waypoints:
+        - [-4.0, 0.0, -4.0]
+        - [4.0, 0.0, -4.0]
+      speed: 1.5
+      mode: pingpong
+  - id: t2
+    team: blue
+    armor: small
+    number: "2"
+    yaw_deg: 180.0
+    motion:
+      type: polyline
+      waypoints:
+        - [5.0, 0.0, -2.0]
+        - [5.0, 0.0, -6.0]
+        - [-5.0, 0.0, -6.0]
+        - [-5.0, 0.0, -2.0]
+      speed: 1.0
+      mode: loop
+  - id: t3
+    team: red
+    armor: large
+    number: "1"
+    position: [0.0, 0.0, -8.0]
+    yaw_deg: 180.0
+    motion:
+      type: spin
+      mode: loop
+      spin_deg_s: 30.0
+  - id: t4
+    team: blue
+    armor: small
+    number: "5"
+    position: [-2.0, 0.0, -6.0]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once

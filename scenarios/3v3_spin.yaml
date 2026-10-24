@@ -1,0 +1,66 @@
+# RM Vision Sim - Phase 3 scenario: 3v3 field with spinning targets.
+#
+# The 3v3 field is authored 0.10 m above y = 0 and is shifted down at load, so
+# all coordinates here are already in the play-surface frame. Playable half
+# extents are x = +/-6.0 m and z = +/-4.0 m; the ego chassis is clamped to
+# +/-5.7 / +/-3.7 m. Motion semantics: see the header of 1v1_static.yaml.
+# Spin keeps the position fixed and rotates the target yaw at `spin_deg_s`.
+
+schema_version: 1
+name: 3v3_spin
+field: rmul2027_3v3
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: vehicle
+  position: [0.0, 0.0, 3.5]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    position: [-3.0, 0.0, -2.0]
+    yaw_deg: 180.0
+    motion:
+      type: spin
+      mode: loop
+      spin_deg_s: 45.0
+  - id: t2
+    team: blue
+    armor: small
+    number: "2"
+    position: [3.0, 0.0, -2.0]
+    yaw_deg: 180.0
+    motion:
+      type: spin
+      mode: pingpong
+      spin_deg_s: 60.0
+  - id: t3
+    team: red
+    armor: large
+    number: "1"
+    position: [0.0, 0.0, -3.0]
+    yaw_deg: 180.0
+    motion:
+      type: spin
+      mode: once
+      spin_deg_s: 90.0
+  - id: t4
+    team: blue
+    armor: small
+    number: "5"
+    position: [0.0, 0.0, 0.5]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once

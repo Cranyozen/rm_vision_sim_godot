@@ -68,6 +68,10 @@ var y_group_span_m := -1.0
 ## Pair at the target-centre height: "x" (+X/-X) or "y" (+Y/-Y).
 var lower_group := "x"
 
+## Optional runtime motion (Phase 3). When set, `step_motion()` drives the rig
+## root; `null` keeps the target at its initial pose.
+var motion: TargetMotion = null
+
 var _center: Node3D = null
 var _armor_frames: Array[Dictionary] = []
 
@@ -98,6 +102,35 @@ func get_center_global_transform() -> Transform3D:
 ##   plate              the ArmorPlate node
 func get_armor_frames() -> Array[Dictionary]:
 	return _armor_frames
+
+
+# --- runtime pose / motion (Phase 3) -----------------------------------------
+
+## Move the rig root to a runtime field pose. The armour is built under the
+## `Center` child in `_ready()`, so moving / rotating the root keeps every
+## plate and every global-transform-derived TF frame (centre + armour) in sync.
+## The Y component is forced to 0 (the root is the floor anchor). Calls made
+## before `_ready()` built the geometry are ignored.
+func set_runtime_pose(pos: Vector3, yaw_deg: float) -> void:
+	if _center == null:
+		return
+	position = Vector3(pos.x, 0.0, pos.z)
+	rotation.y = deg_to_rad(yaw_deg)
+	# Keep the property in sync: after motion starts it tracks the current yaw.
+	self.yaw_deg = yaw_deg
+
+
+## Advance the assigned motion to `sim_time_s` and apply its pose. Does nothing
+## when no motion is configured. Call every frame after `_ready()`.
+func step_motion(sim_time_s: float) -> void:
+	if motion == null:
+		return
+	motion.update(sim_time_s)
+	set_runtime_pose(motion.current_position, motion.current_yaw_deg)
+
+
+func is_moving() -> bool:
+	return motion != null and motion.is_moving()
 
 
 ## Empty when the built layout satisfies S120/S121/S124/S125, otherwise one
