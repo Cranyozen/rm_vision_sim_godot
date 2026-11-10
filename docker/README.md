@@ -29,6 +29,11 @@ docker/run.sh sim
 docker/run.sh godot --script res://tests/phase2_ros_check.gd
 #    or headless (no rendering; Phase 2 feed checks need the windowed run):
 docker/run.sh godot --headless --script res://tests/phase2_ros_check.gd
+
+# 5. Phase 4: build the QYG vision image and run the closed loop
+docker/qyg/build.sh
+docker/run.sh qyg          # terminal 2, while `sim` runs in terminal 1
+docker/run.sh phase4       # or: simulator + QYG + probe in one container
 ```
 
 Environment knobs for `build.sh`: `PROXY=` (empty to disable), `IMAGE=`,
@@ -132,6 +137,7 @@ Two profiles live in this directory:
 | --- | --- | --- |
 | `docker/run.sh foxglove` | 8765 | JPEG `/image_raw/compressed`, `/camera_info`, `/tf`, `/tf_static`, `/serial/receive`, `/cmd_*`, `/armor_solver/*`, `/armor_detector/*`, `/rosout` |
 | `docker/run.sh foxglove-tf` | 8767 | no camera topics: `/tf`, `/tf_static`, `/serial/receive`, `/camera_info`, `/cmd_*`, `/armor_solver/*`, `/rosout` |
+| `docker/run.sh foxglove-phase4` | 8768 | Phase 4 QYG profile: JPEG camera + QYG overlay, TF/markers, solver topics, serial; no raw images |
 | `docker/run.sh foxglove-full` | 8766 | every topic, including raw `/image_raw` (3.9 MB/message, ~120 MB/s at 30 Hz) |
 
 The TF tree is rooted at `map` (field origin, with `map -> odom` following the
@@ -165,6 +171,49 @@ Mitigations:
 - Check the live values from inside the container:
   `ros2 run tf2_ros tf2_monitor map odom` and
   `ros2 topic hz /tf` should show <1 ms delay / ~350 Hz.
+
+## Phase 4: QYG closed loop
+
+`docker/qyg/build.sh` builds **`rmvision-qyg:humble`** from this image: it adds
+OpenVINO 2025.3.0 and builds QYG's `rm_interfaces`, `rm_utils`,
+`armor_detector` and `armor_solver` (Release, tests off). QYG's camera/serial
+drivers and `robot_state_publisher` are deliberately not built or started.
+
+```bash
+docker/run.sh sim          # terminal 1: simulator
+docker/run.sh qyg          # terminal 2: detector + solver (same process)
+docker/run.sh phase4       # one container: simulator + QYG + PHASE4_QYG probe
+```
+
+`docker/run.sh qyg` forwards launch arguments (`mode:=1`, `detector:=...`,
+`binary_thres:=...`, `yolo_conf:=...`); `docker/run.sh qyg-shell` gives a shell
+with the QYG overlay sourced. The loop is verified on the four starter
+scenarios (detector 27–29 Hz, tracking 98–100 %, <1° solver error, ~10 ms image
+latency). See [`qyg/README.md`](qyg/README.md) and
+[`../docs/PHASE4_ACCEPTANCE.md`](../docs/PHASE4_ACCEPTANCE.md).
+
+### Foxglove visualization (Phase 4)
+
+Phase 4 has its own bridge profile and a ready-made layout:
+
+```bash
+# terminal 1: simulator (start solver debug so result_img is published)
+docker/run.sh sim
+# terminal 2: QYG stack with the solver overlay image
+docker/run.sh qyg solver_debug:=true
+# terminal 3: Phase 4 Foxglove bridge on ws://localhost:8768
+docker/run.sh foxglove-phase4
+```
+
+In Foxglove Studio: **Open connection → Foxglove WebSocket → ws://localhost:8768**,
+then **Layouts → Import from file → docker/foxglove_phase4_layout.json**. The
+layout shows the solver overlay (`/armor_solver/result_img/compressed`) and the
+raw camera feed (`/image_raw/compressed`) side by side, a 3D panel with the
+`map`-fixed TF tree plus detector/solver markers, plots of
+`exp_yaw/exp_pitch` vs `/serial/receive` yaw/pitch, and the
+`/armor_solver/target` / `/armor_detector/armors` raw messages. The
+`foxglove-phase4` profile deliberately excludes raw image topics so the
+websocket does not get flooded.
 
 ## Windowed run and Phase 2 acceptance
 

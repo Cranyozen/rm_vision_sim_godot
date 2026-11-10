@@ -1,0 +1,184 @@
+{
+  "configById": {
+    "Image!p4_result": {
+      "imageMode": {
+        "imageTopic": "/armor_solver/result_img/compressed"
+      }
+    },
+    "Image!p4_camera": {
+      "imageMode": {
+        "imageTopic": "/image_raw/compressed"
+      }
+    },
+    "3D!p4_scene": {
+      "cameraState": {
+        "distance": 9,
+        "perspective": true,
+        "phi": 52,
+        "target": [0, 0, 0],
+        "targetOffset": [0, -0.4, 0],
+        "targetOrientation": [0, 0, 0, 1],
+        "thetaOffset": 30,
+        "fovy": 45,
+        "near": 0.1,
+        "far": 200
+      },
+      "followMode": "follow-pose",
+      "followTf": "map",
+      "scene": {
+        "transforms": {
+          "labelSize": 0.06,
+          "editable": false,
+          "showLabel": true,
+          "visible": true,
+          "lineWidth": 1,
+          "axisSize": 0.15,
+          "enablePreloading": true
+        },
+        "syncCamera": false
+      },
+      "transforms": {
+        "frame:map": { "visible": true },
+        "frame:odom": { "visible": true },
+        "frame:gimbal_link": { "visible": true },
+        "frame:camera_optical_frame": { "visible": false },
+        "frame:target_red_1": { "visible": true },
+        "frame:target_red_3": { "visible": false },
+        "frame:target_blue_2": { "visible": false },
+        "frame:target_blue_5": { "visible": false }
+      },
+      "topics": {
+        "/armor_solver/marker": { "visible": true },
+        "/armor_detector/marker": { "visible": true }
+      },
+      "layers": {
+        "p4-grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "p4-grid",
+          "layerId": "foxglove.Grid",
+          "size": 12,
+          "divisions": 12,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [0, 0, 0],
+          "rotation": [0, 0, 0],
+          "order": 1
+        }
+      }
+    },
+    "Plot!p4_aim": {
+      "paths": [
+        {
+          "value": "/armor_solver/cmd_gimbal.exp_yaw",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "exp_yaw",
+          "color": "#f0a020",
+          "id": "p4-exp-yaw"
+        },
+        {
+          "value": "/serial/receive.yaw",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "sim yaw",
+          "color": "#58c4dd",
+          "id": "p4-sim-yaw"
+        },
+        {
+          "value": "/armor_solver/cmd_gimbal.exp_pitch",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "exp_pitch",
+          "color": "#f7df71",
+          "id": "p4-exp-pitch"
+        },
+        {
+          "value": "/serial/receive.pitch",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "sim pitch",
+          "color": "#5cd6a9",
+          "id": "p4-sim-pitch"
+        }
+      ],
+      "showLegend": true,
+      "foxglovePanelTitle": "Gimbal aim: expected vs simulated"
+    },
+    "Plot!p4_error": {
+      "paths": [
+        {
+          "value": "/armor_solver/cmd_gimbal.yaw_diff",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "yaw_diff",
+          "color": "#4e98e2",
+          "id": "p4-yaw-diff"
+        },
+        {
+          "value": "/armor_solver/cmd_gimbal.pitch_diff",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "pitch_diff",
+          "color": "#f5774d",
+          "id": "p4-pitch-diff"
+        },
+        {
+          "value": "/armor_solver/cmd_gimbal.distance",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "distance (m)",
+          "color": "#a395e2",
+          "id": "p4-distance"
+        }
+      ],
+      "showLegend": true,
+      "foxglovePanelTitle": "Solver convergence / target distance"
+    },
+    "RawMessages!p4_target": {
+      "defaultExpanded": true,
+      "topicPath": "/armor_solver/target"
+    },
+    "RawMessages!p4_armors": {
+      "defaultExpanded": false,
+      "topicPath": "/armor_detector/armors"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 46,
+    "first": {
+      "direction": "column",
+      "splitPercentage": 50,
+      "first": "Image!p4_result",
+      "second": "Image!p4_camera"
+    },
+    "second": {
+      "direction": "column",
+      "splitPercentage": 42,
+      "first": "3D!p4_scene",
+      "second": {
+        "direction": "row",
+        "splitPercentage": 54,
+        "first": {
+          "direction": "column",
+          "splitPercentage": 50,
+          "first": "Plot!p4_aim",
+          "second": "Plot!p4_error"
+        },
+        "second": {
+          "direction": "column",
+          "splitPercentage": 50,
+          "first": "RawMessages!p4_target",
+          "second": "RawMessages!p4_armors"
+        }
+      }
+    }
+  }
+}

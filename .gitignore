@@ -12,6 +12,8 @@ Thumbs.db
 # Local logs and captures
 logs/
 tests/*.png*
+# QYG vision stack logs (written relative to the process cwd)
+qd2026-log/
 
 # Python
 __pycache__/

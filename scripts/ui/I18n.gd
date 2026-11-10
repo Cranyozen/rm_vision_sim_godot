@@ -27,7 +27,7 @@ const CONFIG_KEY := "locale"
 ## identical to the English msgid (tests/i18n_check.gd verifies this).
 const ZH_CN := {
 	# --- HUD: status panel -------------------------------------------------
-	"RM VISION SIM · PHASE 3": "RM VISION SIM · 阶段 3",
+	"RM VISION SIM · PHASE 4": "RM VISION SIM · 阶段 4",
 	"Scenario: %s   Field: %s": "场景: %s   场地: %s",
 	"Ego: %s   View: %s": "Ego: %s   视角: %s",
 	"FPS %5.1f   frame %5.2f ms": "FPS %5.1f   帧 %5.2f ms",

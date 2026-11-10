@@ -92,6 +92,9 @@ func _build() -> void:
 		mi.layers = 1
 		if nm.begins_with("STICKER_"):
 			mi.visible = nm == wanted_sticker
+			# Lift the flat sticker off the panel by a hair: they are coplanar in
+			# the source GLB, which z-fights at feed-camera depth precision.
+			mi.position.z += 0.0005
 			found_sticker = found_sticker or mi.visible
 			# A flat sticker 0.12 mm in front of the panel should not cast a
 			# shadow onto its own backing plate.

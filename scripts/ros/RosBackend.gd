@@ -589,7 +589,7 @@ func _publish_target_centers(stamp = null) -> void:
 ## ROS camera_link -> camera_optical_frame is rpy(-pi/2, 0, -pi/2). Build the
 ## equivalent Godot transform so rclgd's TF broadcaster emits exactly that.
 func _optical_frame_transform() -> Transform3D:
-	var ros_basis := Basis.from_euler(Vector3(-PI / 2.0, 0.0, -PI / 2.0))
+	var ros_basis := SimConfig.body_rpy_basis(Vector3(-PI / 2.0, 0.0, -PI / 2.0))
 	return Transform3D(SimConfig.body_basis_to_godot(ros_basis), Vector3.ZERO)
 
 

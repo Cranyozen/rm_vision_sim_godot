@@ -1,0 +1,48 @@
+# Foxglove bridge — Phase 4 QYG closed-loop profile.
+#
+# Websocket: ws://localhost:8768 (host networking).
+#
+# This profile exposes exactly what the Phase 4 layout
+# (docker/foxglove_phase4_layout.json) needs:
+#   - JPEG camera feed and the QYG solver overlay (image_transport /compressed)
+#   - TF + markers for the 3D scene
+#   - solver outputs (cmd_gimbal, target, armors, measurement)
+#   - MCU /serial/receive
+# Raw image topics are deliberately excluded: /image_raw is 3.9 MB per frame,
+# and /armor_solver/result_img raw is another 3.9 MB at ~25 Hz. The /compressed
+# variants are enough for live debugging. Use `docker/run.sh foxglove-full`
+# (port 8766) if you really need raw images.
+#
+# Run it with: docker/run.sh foxglove-phase4
+/**:
+  ros__parameters:
+    port: 8768
+    address: 0.0.0.0
+    topic_whitelist:
+      - "/image_raw/compressed"
+      - "/camera_info"
+      - "/tf"
+      - "/tf_static"
+      - "/serial/receive"
+      - "/cmd_.*"
+      - "/armor_solver/cmd_gimbal"
+      - "/armor_solver/target"
+      - "/armor_solver/armors"
+      - "/armor_solver/marker"
+      - "/armor_solver/measurement"
+      - "/armor_solver/ballistic_debug"
+      - "/armor_solver/heartbeat"
+      - "/armor_solver/result_img/compressed"
+      - "/armor_detector/armors"
+      - "/armor_detector/marker"
+      - "/armor_detector/camera_info"
+      - "/armor_detector/heartbeat"
+      - "/rosout"
+    client_topic_whitelist:
+      - "/cmd_.*"
+      - "/armor_solver/.*"
+    max_qos_depth: 10
+    min_qos_depth: 3
+    # 64 MB: a few JPEG streams + 250 Hz cmd + TF; smaller than the generic
+    # profile because raw images are not advertised at all.
+    send_buffer_limit: 64000000

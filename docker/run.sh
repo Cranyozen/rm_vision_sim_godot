@@ -11,6 +11,10 @@
 #   docker/run.sh foxglove-tf       # TF/motion only, ws://localhost:8767 (no camera, lowest latency)
 #   docker/run.sh foxglove-full     # Foxglove bridge with every topic incl. raw images,
 #                                   # ws://localhost:8766 (heavy, localhost only)
+#   docker/run.sh foxglove-phase4   # Phase 4 profile, ws://localhost:8768 (JPEG + QYG)
+#   docker/run.sh qyg [launch args] # Phase 4 QYG armor_detector + armor_solver
+#   docker/run.sh qyg-shell         # interactive shell in the QYG image (ROS overlay sourced)
+#   docker/run.sh phase4            # simulator + QYG stack + closed-loop probe in one container
 #   docker/run.sh ros2 topic list   # any command inside the container
 #
 # The project directory is mounted at /sim, the container uses host networking
@@ -27,6 +31,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 IMAGE="${IMAGE:-rmvision-rclgd:humble}"
 PROJECT_DIR="${PROJECT_DIR:-$REPO_ROOT}"
+# Phase 4 QYG vision stack image (built by docker/qyg/build.sh).
+QYG_IMAGE="${QYG_IMAGE:-rmvision-qyg:humble}"
+QYG_DIR="${QYG_DIR:-$REPO_ROOT/../QYG_QDVision2026}"
 
 command="${1:-shell}"
 [ $# -gt 0 ] && shift
@@ -101,11 +108,12 @@ case "$command" in
     doctor)
         docker run "${DOCKER_ARGS[@]}" "$IMAGE" ros2 rclgd doctor
         ;;
-    foxglove|foxglove-full|foxglove-tf)
+    foxglove|foxglove-full|foxglove-tf|foxglove-phase4)
         case "$command" in
-            foxglove-full) params=/sim/docker/foxglove_bridge_full.yaml ;;
-            foxglove-tf)   params=/sim/docker/foxglove_bridge_tf.yaml ;;
-            *)             params=/sim/docker/foxglove_bridge.yaml ;;
+            foxglove-full)  params=/sim/docker/foxglove_bridge_full.yaml ;;
+            foxglove-tf)    params=/sim/docker/foxglove_bridge_tf.yaml ;;
+            foxglove-phase4) params=/sim/docker/foxglove_phase4.yaml ;;
+            *)              params=/sim/docker/foxglove_bridge.yaml ;;
         esac
         docker run "${DOCKER_ARGS[@]}" "$IMAGE" \
             ros2 run foxglove_bridge foxglove_bridge --ros-args \
@@ -113,6 +121,43 @@ case "$command" in
         ;;
     shell)
         docker run "${DOCKER_ARGS[@]}" "$IMAGE" bash
+        ;;
+    qyg)
+        # Phase 4: start the QYG detector + solver against the running simulator.
+        # The live QYG node_params directory is bind-mounted over the baked-in
+        # copy when it exists, so parameter edits do not need an image rebuild.
+        QYG_RUN_ARGS=("${DOCKER_ARGS[@]}" -w /tmp -e PYTHONDONTWRITEBYTECODE=1)
+        params_dir=/qyg_ws/config
+        if [ -f "$QYG_DIR/src/rm_bringup/config/node_params/armor_detector_params.yaml" ]; then
+            QYG_RUN_ARGS+=(-v "$QYG_DIR/src/rm_bringup/config/node_params:/qyg_params:ro")
+            params_dir=/qyg_params
+        fi
+        docker run "${QYG_RUN_ARGS[@]}" "$QYG_IMAGE" \
+            bash -lc 'source /qyg_ws/install/setup.bash && exec ros2 launch \
+                /sim/docker/qyg/phase4_qyg.launch.py params_dir:='"$params_dir"' "$@"' _ "$@"
+        ;;
+    qyg-shell)
+        docker run "${DOCKER_ARGS[@]}" "$QYG_IMAGE" bash -lc \
+            'source /qyg_ws/install/setup.bash; exec bash'
+        ;;
+    phase4)
+        # Automated closed loop in ONE container: simulator + QYG stack + probe.
+        QYG_RUN_ARGS=("${DOCKER_ARGS[@]}"
+            -w /tmp
+            -e PYTHONDONTWRITEBYTECODE=1
+            -e PHASE4_DURATION="${PHASE4_DURATION:-15}"
+            -e PHASE4_MODE="${PHASE4_MODE:-0}"
+            -e PHASE4_DUMP="${PHASE4_DUMP:-0}"
+            -e PHASE4_TRACE="${PHASE4_TRACE:-0}")
+        [ -n "${PHASE4_SCENARIO:-}" ] && QYG_RUN_ARGS+=(-e PHASE4_SCENARIO="$PHASE4_SCENARIO")
+        params_dir=/qyg_ws/config
+        if [ -f "$QYG_DIR/src/rm_bringup/config/node_params/armor_detector_params.yaml" ]; then
+            QYG_RUN_ARGS+=(-v "$QYG_DIR/src/rm_bringup/config/node_params:/qyg_params:ro")
+            params_dir=/qyg_params
+        fi
+        docker run "${QYG_RUN_ARGS[@]}" "$QYG_IMAGE" \
+            bash -lc 'source /qyg_ws/install/setup.bash && exec \
+                /sim/docker/qyg/run_phase4.sh params_dir:='"$params_dir"' "$@"' _ "$@"
         ;;
     sim)
         run_sim_script "--verbose" "$@"
