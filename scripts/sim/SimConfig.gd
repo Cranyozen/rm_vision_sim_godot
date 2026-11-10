@@ -37,26 +37,27 @@ const FEED_SCALE := float(FEED_HEIGHT) / ORIG_HEIGHT
 
 const FIELD_1V1_PATH := "res://assets/fields/rmul2027_1v1.glb"
 const FIELD_3V3_PATH := "res://assets/fields/rmul2027_3v3.glb"
-const EGO_VEHICLE_PATH := "res://assets/models/ego/vehicle.glb"
-const EGO_INFANTRY_PATH := "res://assets/models/ego/infantry.glb"
+## Ego model profiles: one YAML per robot under this directory. The profile
+## carries the scene path, unit scale, floor offset, gimbal pivot/markers and
+## camera mount (see `EgoModelConfig` and `config/ego/*.yaml`). `EgoRig` has a
+## single config-driven builder, so a new robot is a new file, not new code.
+const EGO_PROFILE_DIR := "res://config/ego"
+const EGO_DEFAULT_MODEL := "vehicle"
 
 ## QYG gimbal_link -> camera_link mount (metres, radians). Kept as an
 ## alternative mount for comparing the feed against the real robot calibration.
 const QYG_CAMERA_OFFSET := Vector3(0.0461892, 0.0, -0.0603874)
 const QYG_CAMERA_RPY := Vector3(0.0, 0.091, 0.0)
 
-## vehicle.glb's "CAM_DIRECTION" empty under GIMBAL: the model's own camera
-## mount. Its translation is the camera position in gimbal space; its rotation
-## is the CAD export's camera frame, where the view direction is local -Y and
-## up is local -Z (the node carries a ~+90 deg X rotation and a 0.001 scale).
-## Godot cameras look down -Z with +Y up, hence the -90 deg X correction below
-## (stored in radians, matching Basis.from_euler).
+## Default name of the camera eye-position empty under the gimbal. A profile
+## may override it with `camera_marker_node`. The marker's translation is the
+## camera position in gimbal space; its rotation is the CAD export's camera
+## frame, where the view direction is local -Y and up is local -Z (the node
+## carries a ~+90 deg X rotation and a 0.001 scale). Godot cameras look down -Z
+## with +Y up, hence the -90 deg X correction below (stored in radians, matching
+## Basis.from_euler).
 const CAM_DIRECTION_NODE := "CAM_DIRECTION"
 const CAM_DIRECTION_TO_CAMERA_RPY := Vector3(-PI / 2.0, 0.0, 0.0)
-
-## Fallback camera location in gimbal space when the model has no
-## CAM_DIRECTION node (i.e. the raw position the node would contribute).
-const VEHICLE_CAMERA_OFFSET := Vector3(-0.002017, 0.1963421255, -0.0600251630)
 
 ## Camera mount orientation policy.
 ##
@@ -77,28 +78,6 @@ const CAMERA_MOUNT_PRESET := "gimbal"
 ## Extra yaw applied to the gimbal-aligned mount (deg, + = left).  Use this to
 ## dial in a measured optical-axis offset without editing the rig.
 const CAMERA_YAW_OFFSET_DEG := 0.0
-
-## Static install-pitch compensation for the imported vehicle model.
-##
-## vehicle.glb authors the gimbal head 25 deg nose-up: the area-weighted
-## dominant planes of the `GIMBAL_MAIN` mesh measure +25.0 deg against the
-## horizontal (top face +65 deg, front face +25 deg), while `CHASSIS` measures
-## 0.0 deg with the same estimator - so the head is posed, not the whole model.
-## The CAD `CAM_DIRECTION` / `SHOT_DIRECTION` markers are authored level in that
-## same frame, so without compensation gimbal pitch 0 draws the head (and with
-## it the visible camera/barrel housing) 25 deg up while the FPV and the feed
-## look level.
-##
-## The rig therefore rotates the *visual* children of the pitch node by this
-## angle about the joint origin.  The CAD markers stay directly on the pitch
-## node, so the camera keeps the orientation the model authored for it.
-const GIMBAL_REST_PITCH_DEG := -25.0
-## Node names under GIMBAL that must not receive the compensation above.
-const GIMBAL_MARKER_NODES := ["CAM_DIRECTION", "SHOT_DIRECTION"]
-## Translation applied to the compensated visual pivot (metres).  The CAD poses
-## the head by rotating about the joint origin, so a levelled head would dip its
-## nose into the chassis; this lifts it back onto the yaw bracket.
-const GIMBAL_VISUAL_OFFSET := Vector3(0.0, 0.0, 0.0)
 
 # --- Phase 1 operator (first-person driving) --------------------------------
 
@@ -185,6 +164,16 @@ static func body_to_godot(v: Vector3) -> Vector3:
 ## node's local axes are the frame axes (armour plate placement).
 static func body_axes_to_godot(b: Basis) -> Basis:
 	return Basis(body_to_godot(b.x), body_to_godot(b.y), body_to_godot(b.z))
+
+
+## URDF / REP-103 RPY to a rotation expressed in body coordinates. URDF uses
+## fixed-axis XYZ (R = Rz(yaw) * Ry(pitch) * Rx(roll)); Godot's
+## `Basis.from_euler()` defaults to the YXZ convention, so calling it with an
+## RPY triple silently produces a different rotation (this bit the
+## camera_link -> camera_optical_frame TF: PnP poses transformed through it
+## were off by ~90 deg of yaw).
+static func body_rpy_basis(rpy: Vector3) -> Basis:
+	return Basis(Vector3.BACK, rpy.z) * Basis(Vector3.UP, rpy.y) * Basis(Vector3.RIGHT, rpy.x)
 
 
 ## Convert a body-frame **rotation** to the equivalent Godot rotation:

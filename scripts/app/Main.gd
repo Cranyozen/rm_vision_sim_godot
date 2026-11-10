@@ -1,6 +1,6 @@
 extends Node3D
 
-## Phase 3 entry point.
+## Main scene entry point (Phases 1-4).
 ##
 ## Phase 1/2 features stay intact (1v1 field, four-armour targets, ego rig,
 ## 1280x1024 feed, operator/free cameras, optional rclgd ROS backend) and Phase 3
@@ -500,7 +500,7 @@ func _spawn_ego_from_scenario(data: Dictionary) -> void:
 
 	_ego = EGO_SCENE.instantiate() as EgoRig
 	_ego.name = "Ego"
-	_ego.preset = String(ego_cfg.get("model", "vehicle"))
+	_ego.preset = String(ego_cfg.get("model", SimConfig.EGO_DEFAULT_MODEL))
 	_ego.camera_mount_preset = String(SimConfig.CAMERA_PRESETS[_camera_preset])
 	_ego.camera_yaw_offset_deg = _camera_yaw_offset()
 	_ego.position = position

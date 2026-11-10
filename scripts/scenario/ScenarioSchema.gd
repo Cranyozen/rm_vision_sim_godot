@@ -41,7 +41,6 @@ const FIELD_IDS := ["rmul2027_1v1", "rmul2027_3v3", "flat"]
 const ROS_BACKENDS := ["rclgd"]
 const RAW_ENCODINGS := ["rgb8", "bayer_rggb8"]
 const CAMERA_PRESETS := ["qyg", "cad", "qyg_trim"]
-const EGO_MODELS := ["vehicle", "infantry_light"]
 const TEAMS := ["red", "blue"]
 const ARMOR_SIZES := ["small", "large"]
 const LOWER_GROUPS := ["x", "y"]
@@ -97,7 +96,7 @@ static func defaults() -> Dictionary:
 			"fpv_fov_deg": 70.0,
 		},
 		"ego": {
-			"model": "vehicle",
+			"model": EgoModelConfig.default_model_id(),
 			"position": [0.0, 0.0, 2.2],
 			"yaw_deg": 0.0,
 		},
@@ -195,8 +194,8 @@ static func validate(data: Variant) -> Dictionary:
 	if _is_mapping(src, "ego"):
 		_unknown_keys(ego_src, EGO_KEYS, "ego", warnings)
 	var ego: Dictionary = out["ego"]
-	ego["model"] = _enum_field(ego_src, "model", EGO_MODELS, "ego", "vehicle",
-		errors)
+	ego["model"] = _enum_field(ego_src, "model", EgoModelConfig.model_ids(),
+		"ego", EgoModelConfig.default_model_id(), errors)
 	ego["position"] = _vector3_field(ego_src, "position", "ego",
 		[0.0, 0.0, 2.2], errors)
 	ego["yaw_deg"] = _float_field(ego_src, "yaw_deg", "ego", 0.0, 0.0, 0.0,

@@ -1,0 +1,62 @@
+# Ego model profile: light infantry chassis.
+#
+# infantry.glb is a chassis-only asset (millimetre units, no gimbal), so this
+# profile declares a synthetic gimbal: the rig builds the yaw/pitch chain and
+# the camera mount from the parts below. Everything else follows the same
+# standard as any other ego model.
+
+schema_version: 1
+id: infantry_light
+display_name: Infantry (light chassis)
+
+scene_path: res://assets/models/ego/infantry.glb
+unit_scale: 0.001            # the GLB is authored in millimetres
+floor_offset_m: 0.074366
+
+gimbal_node: ""              # chassis-only asset: no GIMBAL node inside it
+hide_node_prefixes: []
+
+synthetic_gimbal:
+  # Joint positions are in rig space (metres above the ground plane).
+  yaw_joint_m: [0.0, 0.152, 0.0]
+  pitch_joint_m: [0.0, 0.045, 0.0]
+  camera_mount_m: [0.0, 0.035, -0.11]
+
+  parts:
+    - name: YAW_BODY
+      attach: yaw
+      shape: cylinder
+      radius: 0.055
+      height: 0.035
+      position: [0.0, 0.02, 0.0]
+      color: [0.09, 0.10, 0.11]
+
+    - name: PITCH_BODY
+      attach: pitch
+      shape: box
+      size: [0.16, 0.075, 0.13]
+      position: [0.0, 0.02, -0.02]
+      color: [0.06, 0.07, 0.08]
+
+    - name: CAMERA_HOUSING_L
+      attach: pitch
+      shape: box
+      size: [0.075, 0.06, 0.11]
+      position: [0.055, 0.02, -0.07]
+      color: [0.10, 0.11, 0.12]
+
+    - name: CAMERA_HOUSING_R
+      attach: pitch
+      shape: box
+      size: [0.075, 0.06, 0.11]
+      position: [-0.055, 0.02, -0.07]
+      color: [0.10, 0.11, 0.12]
+
+    - name: BARREL
+      attach: pitch
+      shape: cylinder
+      radius: 0.026
+      height: 0.045
+      position: [0.0, 0.02, -0.135]
+      rotation_deg: [90.0, 0.0, 0.0]
+      color: [0.02, 0.02, 0.02]

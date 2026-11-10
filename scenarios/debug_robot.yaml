@@ -1,0 +1,47 @@
+# RM Vision Sim - minimal debug scenario.
+#
+# Uses the tiny generated ego model (`assets/models/ego/debug_robot.glb`,
+# `ego.model: debug`) instead of the 29.6 MB vehicle.glb so camera, feed and
+# ROS/TF debugging starts instantly. The model is simple boxes plus the
+# required `GIMBAL` pivot and `CAM_DIRECTION` marker; see
+# `tools/make_debug_robot.py`.
+#
+# Run:  godot --path . -- --scenario=res://scenarios/debug_robot.yaml
+
+schema_version: 1
+name: debug_robot
+field: flat
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: debug
+  position: [0.0, 0.0, 2.2]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    position: [0.0, 0.0, -1.4]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once
+  - id: t2
+    team: blue
+    armor: large
+    number: "1"
+    position: [1.6, 0.0, -0.6]
+    yaw_deg: 235.0
+    motion:
+      type: static
+      mode: once

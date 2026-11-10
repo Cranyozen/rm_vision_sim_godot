@@ -1,0 +1,19 @@
+# Ego model profile: minimal generated debug robot.
+#
+# Tiny box robot (`tools/make_debug_robot.py`) for camera / feed / ROS
+# debugging. It already follows the standard frame (authored level on the
+# ground), so no floor offset or install-pitch compensation is needed.
+
+schema_version: 1
+id: debug
+display_name: Debug box robot
+
+scene_path: res://assets/models/ego/debug_robot.glb
+unit_scale: 1.0
+floor_offset_m: 0.0
+
+gimbal_node: GIMBAL
+gimbal_rest_pitch_deg: 0.0
+marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]
+camera_marker_node: CAM_DIRECTION
+hide_node_prefixes: []
