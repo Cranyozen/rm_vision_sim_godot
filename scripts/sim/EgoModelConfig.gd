@@ -16,7 +16,8 @@ extends RefCounted
 ##   scene_path: res://...glb         # required, Godot-imported scene
 ##   unit_scale: 1.0                  # 0.001 for millimetre assets
 ##   floor_offset_m: 0.2101           # lift so the chassis bottom sits on y = 0
-##   gimbal_node: GIMBAL              # pivot node inside the scene; "" = none
+##   gimbal_node: GIMBAL              # pitch pivot node inside the scene; "" = none
+##   gimbal_yaw_node: ""              # optional separate yaw pivot (two-axis gimbal)
 ##   gimbal_rest_pitch_deg: -25.0     # install pitch baked into the visual head
 ##   gimbal_visual_offset_m: [0,0,0]  # translation of the compensated pivot
 ##   marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]  # never compensated
@@ -55,6 +56,7 @@ const DEFAULTS := {
 	"unit_scale": 1.0,
 	"floor_offset_m": 0.0,
 	"gimbal_node": "GIMBAL",
+	"gimbal_yaw_node": "",
 	"gimbal_rest_pitch_deg": 0.0,
 	"gimbal_visual_offset_m": [0.0, 0.0, 0.0],
 	"marker_nodes": ["CAM_DIRECTION", "SHOT_DIRECTION"],
@@ -203,6 +205,7 @@ static func normalize(data: Variant, path: String,
 		out["unit_scale"] = 1.0
 	out["floor_offset_m"] = _float(src.get("floor_offset_m"), 0.0)
 	out["gimbal_node"] = _string(src.get("gimbal_node"), "GIMBAL")
+	out["gimbal_yaw_node"] = _string(src.get("gimbal_yaw_node"), "")
 	out["gimbal_rest_pitch_deg"] = _float(src.get("gimbal_rest_pitch_deg"), 0.0)
 	out["gimbal_visual_offset_m"] = _vec3(src.get("gimbal_visual_offset_m"), [0.0, 0.0, 0.0])
 	out["marker_nodes"] = _string_array(src.get("marker_nodes"),

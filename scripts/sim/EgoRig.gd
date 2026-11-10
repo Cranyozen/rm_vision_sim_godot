@@ -15,12 +15,17 @@ extends Node3D
 ##
 ## EgoRoot (this node, chassis yaw)
 ##   └─ VehicleModel / chassis visual
-##   └─ GimbalYaw (world Y)
-##        └─ GimbalPitch (local X)  ← profile `gimbal_node` (default GIMBAL)
+##   └─ GimbalYaw (world Y)         ← yaw pivot: profile `gimbal_yaw_node`
+##        └─ GimbalPitch (local X)  ← pitch pivot: profile `gimbal_node`
 ##             ├─ GimbalVisual     ← meshes only; install-pitch compensation
 ##             │                       (profile `gimbal_rest_pitch_deg`)
 ##             ├─ CAM_DIRECTION / SHOT_DIRECTION (markers, not compensated)
 ##             └─ CameraMount      ← marker pose, or the profile's mount
+##
+## One-axis assets (no `gimbal_yaw_node`): the `gimbal_node` translation is both
+## pivots and the head pitches around it.  Two-axis assets author a separate
+## yaw joint; its translation is the yaw pivot and the pitch node keeps its
+## authored offset from it, so yaw and pitch rotate about their real axes.
 
 signal gimbal_changed(yaw_deg: float, pitch_deg: float)
 
@@ -105,9 +110,13 @@ func _build_from_profile() -> void:
 	var gimbal: Node3D = null
 	if not gimbal_node_name.is_empty():
 		gimbal = model.find_child(gimbal_node_name, true, false) as Node3D
+	var yaw_node_name := String(profile.get("gimbal_yaw_node", ""))
+	var yaw_joint: Node3D = null
+	if not yaw_node_name.is_empty():
+		yaw_joint = model.find_child(yaw_node_name, true, false) as Node3D
 
 	if gimbal != null:
-		_build_gimbal_from_model(gimbal, floor_offset)
+		_build_gimbal_from_model(gimbal, yaw_joint, floor_offset)
 	elif not (profile.get("synthetic_gimbal", {}) as Dictionary).is_empty():
 		_build_synthetic_gimbal(profile["synthetic_gimbal"])
 	else:
@@ -116,20 +125,48 @@ func _build_from_profile() -> void:
 
 
 ## Pivot chain around an authored gimbal node: keep the imported subtree, make
-## it the pitch joint. The pivot sits where the model authors its gimbal node
-## (vehicle.glb has it at the model origin), lifted by the floor offset.
-func _build_gimbal_from_model(gimbal: Node3D, floor_offset: float) -> void:
-	var pivot := gimbal.transform.origin
+## it the pitch joint.
+##
+## One-axis assets (no separate yaw node): the pitch node's translation is also
+## the yaw pivot, so both joints share that point (vehicle.glb authors GIMBAL at
+## the model origin, lifted by the floor offset).
+##
+## Two-axis assets: `yaw_joint` is the authored yaw node and must contain the
+## pitch node. Its translation becomes the yaw pivot (rotation about world Y),
+## and the pitch node keeps its authored offset from it, so the pitch axis sits
+## where the CAD pitches (e.g. the launcher head of the 24-sentry).
+func _build_gimbal_from_model(gimbal: Node3D, yaw_joint: Node3D,
+		floor_offset: float) -> void:
+	var two_axis := yaw_joint != null and yaw_joint != gimbal \
+		and yaw_joint.is_ancestor_of(gimbal)
+	if yaw_joint != null and not two_axis:
+		push_warning("EgoRig: gimbal_yaw_node '%s' does not contain gimbal node '%s'; using the single-pivot joint"
+			% [yaw_joint.name, gimbal.name])
+	var pivot := Vector3.ZERO
+	if two_axis:
+		pivot = yaw_joint.transform.origin
+	else:
+		pivot = gimbal.transform.origin
 	_gimbal_yaw = Node3D.new()
 	_gimbal_yaw.name = "GimbalYaw"
 	_gimbal_yaw.position = Vector3(0.0, floor_offset, 0.0) + pivot
 	add_child(_gimbal_yaw)
 
-	# Keep the imported gimbal subtree intact; only its pivot changes.
-	gimbal.reparent(_gimbal_yaw, true)
-	gimbal.name = "GimbalPitch"
-	gimbal.position = Vector3.ZERO
-	gimbal.rotation = Vector3.ZERO
+	if two_axis:
+		# The yaw joint owns the vertical axis; the pitch joint keeps its
+		# authored offset, so the two axes no longer collapse into one point.
+		yaw_joint.reparent(_gimbal_yaw, true)
+		yaw_joint.name = "GimbalYawJoint"
+		yaw_joint.position = Vector3.ZERO
+		yaw_joint.rotation = Vector3.ZERO
+		gimbal.name = "GimbalPitch"
+		gimbal.rotation = Vector3.ZERO
+	else:
+		# Keep the imported gimbal subtree intact; only its pivot changes.
+		gimbal.reparent(_gimbal_yaw, true)
+		gimbal.name = "GimbalPitch"
+		gimbal.position = Vector3.ZERO
+		gimbal.rotation = Vector3.ZERO
 	_gimbal_pitch = gimbal
 	_build_gimbal_visual(gimbal, float(profile.get("gimbal_rest_pitch_deg", 0.0)),
 		_vec3(profile.get("gimbal_visual_offset_m", [])))
