@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!--
+  Phase 5 sample robot: two-axis gimbal camera head, URDF form.
+
+  Frame: standard URDF / REP-103 body frame (metres, +X forward, +Y left,
+  +Z up). The loader converts every pose and axis to the Godot frame.
+
+  Chain:
+    base_link
+      -> gimbal_yaw_joint    (revolute about body Z, +/-2 rad)
+           -> gimbal_yaw_link
+                -> gimbal_pitch_joint (revolute about body Y, +/-0.6 rad)
+                     -> gimbal_pitch_link (head mesh, meshes/head.obj)
+                          -> camera_joint (fixed)
+                               -> camera_link
+                                    -> camera_optical_joint (fixed, optical RPY)
+                                         -> camera_optical_frame
+      -> slider_joint (prismatic along body X, 0..0.05 m)
+           -> slider_link
+
+  meshes/head.obj is authored in the Godot frame (Y up, -Z forward), as the
+  Phase 5 mesh convention requires; tools/prepare_robot_model.py converts
+  ROS-frame meshes to that frame.
+-->
+<robot name="phase5_gimbal">
+
+  <material name="body_grey">
+    <color rgba="0.22 0.24 0.27 1.0"/>
+  </material>
+  <material name="head_dark">
+    <color rgba="0.10 0.11 0.13 1.0"/>
+  </material>
+
+  <link name="base_link">
+    <visual name="base_body">
+      <origin xyz="0 0 0.10" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.40 0.30 0.20"/>
+      </geometry>
+      <material name="body_grey"/>
+    </visual>
+  </link>
+
+  <link name="gimbal_yaw_link">
+    <visual name="yaw_bearing">
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.08"/>
+      </geometry>
+      <material name="head_dark"/>
+    </visual>
+  </link>
+
+  <link name="gimbal_pitch_link">
+    <visual name="head">
+      <origin xyz="0.05 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/head.obj" scale="1 1 1"/>
+      </geometry>
+      <material name="head_dark"/>
+    </visual>
+  </link>
+
+  <link name="camera_link"/>
+
+  <link name="camera_optical_frame"/>
+
+  <link name="slider_link">
+    <visual name="slider_body">
+      <origin xyz="0 0 0.015" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.06 0.06 0.03"/>
+      </geometry>
+      <material name="body_grey"/>
+    </visual>
+  </link>
+
+  <joint name="gimbal_yaw_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="gimbal_yaw_link"/>
+    <origin xyz="0 0 0.22" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.0" upper="2.0" effort="5.0" velocity="3.0"/>
+  </joint>
+
+  <joint name="gimbal_pitch_joint" type="revolute">
+    <parent link="gimbal_yaw_link"/>
+    <child link="gimbal_pitch_link"/>
+    <origin xyz="0 0 0.08" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.6" upper="0.6" effort="5.0" velocity="3.0"/>
+  </joint>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="gimbal_pitch_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0.05 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5707963267948966 0 -1.5707963267948966"/>
+  </joint>
+
+  <joint name="slider_joint" type="prismatic">
+    <parent link="base_link"/>
+    <child link="slider_link"/>
+    <origin xyz="-0.14 0 0.20" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.0" upper="0.05" effort="5.0" velocity="0.2"/>
+  </joint>
+
+</robot>

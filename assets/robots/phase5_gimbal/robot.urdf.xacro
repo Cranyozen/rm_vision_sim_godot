@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+<!--
+  Phase 5 sample robot: two-axis gimbal camera head, xacro form.
+
+  Same chain and geometry as robot.urdf, but written with the documented
+  xacro subset:
+  - <xacro:arg> defaults ($(arg prefix) is empty by default);
+  - <xacro:property> values, including ${...} arithmetic with pi and
+    radians();
+  - <xacro:include filename="fragments/base.xacro"/> (relative include);
+  - ${...} substitutions inside attributes (origin/axis/limit/mesh filename).
+
+  Frame: URDF / REP-103 body frame (metres, +X forward, +Y left, +Z up); the
+  loader converts it to the Godot frame. meshes/head.obj is authored in the
+  Godot frame (Y up, -Z forward).
+-->
+<robot name="phase5_gimbal" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="prefix" default=""/>
+  <xacro:arg name="body_width" default="0.40"/>
+  <xacro:arg name="body_depth" default="0.30"/>
+  <xacro:arg name="base_height" default="0.20"/>
+
+  <xacro:property name="gimbal_height" value="0.22"/>
+  <xacro:property name="pitch_height" value="0.08"/>
+  <xacro:property name="head_offset" value="${radians(0) + 0.05}"/>
+  <xacro:property name="mesh_dir" value="meshes"/>
+  <xacro:property name="yaw_limit" value="${pi}"/>
+  <xacro:property name="optical_rpy" value="${-pi / 2} 0 ${-pi / 2}"/>
+
+  <material name="body_grey">
+    <color rgba="0.22 0.24 0.27 1.0"/>
+  </material>
+  <material name="head_dark">
+    <color rgba="0.10 0.11 0.13 1.0"/>
+  </material>
+
+  <xacro:include filename="fragments/base.xacro"/>
+
+  <link name="$(arg prefix)gimbal_yaw_link">
+    <visual name="yaw_bearing">
+      <origin xyz="0 0 0.04" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.08"/>
+      </geometry>
+      <material name="head_dark"/>
+    </visual>
+  </link>
+
+  <link name="$(arg prefix)gimbal_pitch_link">
+    <visual name="head">
+      <origin xyz="${head_offset} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="${mesh_dir}/head.obj" scale="1 1 1"/>
+      </geometry>
+      <material name="head_dark"/>
+    </visual>
+  </link>
+
+  <link name="$(arg prefix)camera_link"/>
+
+  <link name="$(arg prefix)camera_optical_frame"/>
+
+  <link name="$(arg prefix)slider_link">
+    <visual name="slider_body">
+      <origin xyz="0 0 0.015" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.06 0.06 0.03"/>
+      </geometry>
+      <material name="body_grey"/>
+    </visual>
+  </link>
+
+  <joint name="$(arg prefix)gimbal_yaw_joint" type="revolute">
+    <parent link="$(arg prefix)base_link"/>
+    <child link="$(arg prefix)gimbal_yaw_link"/>
+    <origin xyz="0 0 ${gimbal_height}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="${-yaw_limit}" upper="${yaw_limit}" effort="5.0" velocity="3.0"/>
+  </joint>
+
+  <joint name="$(arg prefix)gimbal_pitch_joint" type="revolute">
+    <parent link="$(arg prefix)gimbal_yaw_link"/>
+    <child link="$(arg prefix)gimbal_pitch_link"/>
+    <origin xyz="0 0 ${pitch_height}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.6" upper="0.6" effort="5.0" velocity="3.0"/>
+  </joint>
+
+  <joint name="$(arg prefix)camera_joint" type="fixed">
+    <parent link="$(arg prefix)gimbal_pitch_link"/>
+    <child link="$(arg prefix)camera_link"/>
+    <origin xyz="${head_offset} 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="$(arg prefix)camera_optical_joint" type="fixed">
+    <parent link="$(arg prefix)camera_link"/>
+    <child link="$(arg prefix)camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${optical_rpy}"/>
+  </joint>
+
+  <joint name="$(arg prefix)slider_joint" type="prismatic">
+    <parent link="$(arg prefix)base_link"/>
+    <child link="$(arg prefix)slider_link"/>
+    <origin xyz="-0.14 0 0.20" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.0" upper="0.05" effort="5.0" velocity="0.2"/>
+  </joint>
+
+</robot>

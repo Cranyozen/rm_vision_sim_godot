@@ -53,6 +53,22 @@ var _camera_marker_node := SimConfig.CAM_DIRECTION_NODE
 var _fixed_camera_mount := Transform3D.IDENTITY
 var _has_fixed_camera_mount := false
 
+## Phase 5: URDF/SDF-backed profiles build a RobotRig instead of an imported
+## GLB scene. The rig owns the link/joint tree; this EgoRig maps its yaw/pitch
+## joints onto the operator gimbal and derives the camera mount from the
+## description's optical frame. `_camera_link_node` / `_camera_optical_node`
+## stay null for GLB profiles (RosBackend then uses the Phase 2/4 TF path).
+var _robot_rig: RobotRig
+var _robot_description: RobotDescription
+var _yaw_joint_name := ""
+var _pitch_joint_name := ""
+## Sign that maps the operator convention (positive yaw = left, positive pitch
+## = up) onto the description's joint axis direction; set when the rig is built.
+var _yaw_sign := 1.0
+var _pitch_sign := 1.0
+var _camera_link_node: Node3D
+var _camera_optical_node: Node3D
+
 
 func _ready() -> void:
 	rotation.y = deg_to_rad(chassis_yaw_deg)
@@ -77,7 +93,7 @@ func _build() -> void:
 	if _gimbal_yaw == null or _gimbal_pitch == null or _camera_mount == null:
 		push_warning("EgoRig: profile '%s' incomplete, building fallback rig" % preset)
 		_build_fallback()
-	_brighten_dark_materials()
+	_enhance_materials()
 	_set_layers(self, 2)
 
 
@@ -87,6 +103,11 @@ func _build_from_profile() -> void:
 		SimConfig.CAM_DIRECTION_NODE))
 	_marker_nodes = Array(profile.get("marker_nodes", []))
 	camera_mount_offset = _vec3(profile.get("camera_mount_fallback_m", []))
+
+	var description: Dictionary = profile.get("robot_description", {})
+	if not String(description.get("path", "")).is_empty():
+		_build_from_robot_description(description)
+		return
 
 	var scene_path := String(profile.get("scene_path", ""))
 	var packed := load(scene_path) as PackedScene
@@ -122,6 +143,137 @@ func _build_from_profile() -> void:
 	else:
 		push_error("EgoRig: profile '%s' has no gimbal node '%s' and no synthetic_gimbal"
 			% [preset, gimbal_node_name])
+
+
+## Phase 5: build the ego from a URDF/SDF robot description.
+##
+## The description owns the link/joint tree; the profile names the two joints
+## that behave as the operator gimbal (yaw about the body vertical, pitch about
+## the body lateral axis) and the camera frames. The camera mount is derived
+## from the description's optical frame, so the feed, the FPV and the published
+## ROS camera chain all come from the same URDF/SDF transform.
+func _build_from_robot_description(description: Dictionary) -> void:
+	var path := String(description.get("path", ""))
+	var format := String(description.get("format", ""))
+	_robot_description = SdfLoader.load_file(path) if format == "sdf" \
+		else UrdfLoader.load_file(path)
+	var desc := _robot_description
+	if desc == null:
+		push_error("EgoRig: cannot load robot description '%s'" % path)
+		_build_fallback()
+		return
+	for warning in desc.warnings:
+		push_warning("EgoRig: %s: %s" % [path, warning])
+	if not desc.errors.is_empty():
+		for error in desc.errors:
+			push_error("EgoRig: %s: %s" % [path, error])
+		_build_fallback()
+		return
+
+	_yaw_joint_name = String(description.get("yaw_joint", ""))
+	_pitch_joint_name = String(description.get("pitch_joint", ""))
+	if not desc.has_joint(_yaw_joint_name) or not desc.has_joint(_pitch_joint_name):
+		push_error("EgoRig: profile '%s' maps unknown joints (yaw='%s', pitch='%s')"
+			% [preset, _yaw_joint_name, _pitch_joint_name])
+		_build_fallback()
+		return
+
+	var options := {
+		"unit_scale": float(profile.get("unit_scale", 1.0)),
+		"layers": 2,
+	}
+	var mesh_root := String(description.get("mesh_root", ""))
+	if not mesh_root.is_empty():
+		options["mesh_root"] = mesh_root
+	_robot_rig = RobotRig.build(desc, options)
+	_robot_rig.name = "RobotDescription"
+	_robot_rig.position = Vector3(0.0, float(profile.get("floor_offset_m", 0.0)), 0.0)
+	_model_root = _robot_rig
+	add_child(_robot_rig)
+
+	_gimbal_yaw = _robot_rig.get_joint_node(_yaw_joint_name)
+	_gimbal_pitch = _robot_rig.get_joint_node(_pitch_joint_name)
+	if _gimbal_yaw == null or _gimbal_pitch == null:
+		push_error("EgoRig: robot description '%s' has no joint nodes for yaw/pitch"
+			% path)
+		_build_fallback()
+		return
+	# The operator gimbal assumes a vertical yaw axis and a lateral pitch axis;
+	# a description that authors different axes still builds, but warns because
+	# the on-screen gimbal angles would then mean something else.
+	var yaw_axis := Vector3(desc.joint(_yaw_joint_name).get("axis", Vector3.UP))
+	var pitch_axis := Vector3(desc.joint(_pitch_joint_name).get("axis", Vector3.RIGHT))
+	_yaw_sign = 1.0 if yaw_axis.normalized().dot(Vector3.UP) >= 0.0 else -1.0
+	_pitch_sign = 1.0 if pitch_axis.normalized().dot(Vector3.RIGHT) >= 0.0 else -1.0
+	if absf(yaw_axis.normalized().dot(Vector3.UP)) < 0.99:
+		push_warning("EgoRig: yaw joint '%s' axis is not vertical (Godot %s)"
+			% [_yaw_joint_name, yaw_axis])
+	if absf(pitch_axis.normalized().dot(Vector3.RIGHT)) < 0.99:
+		push_warning("EgoRig: pitch joint '%s' axis is not lateral (Godot %s)"
+			% [_pitch_joint_name, pitch_axis])
+
+	# A description has no install-pitch compensation: its joint tree already
+	# models the real axes, so the visual pivot is the pitch joint itself.
+	_gimbal_visual = null
+	_camera_link_node = _robot_rig.get_link_node(
+		String(description.get("camera_link", "")))
+	_camera_optical_node = _robot_rig.get_link_node(
+		String(description.get("camera_optical_frame", "")))
+	if _camera_optical_node == null and _camera_link_node == null:
+		push_warning("EgoRig: description '%s' has no camera_link/optical frame; using the profile camera mount fallback"
+			% path)
+	_camera_mount = Node3D.new()
+	_camera_mount.name = "CameraMount"
+	_camera_mount.transform = _description_camera_mount()
+	_gimbal_pitch.add_child(_camera_mount)
+
+
+## Camera pose in the description, relative to the pitch joint.
+##
+## Description node transforms are stored in the "conjugated" Godot frame the
+## loaders use (mesh vertices are authored in the Godot frame, so the same
+## transform renders correctly); a Camera3D, however, interprets its basis as a
+## normal frame (-Z forward, +Y up). Converting an optical-frame pose to a
+## camera pose therefore needs one Godot<-body basis change plus the
+## optical->camera axis flip (X right, -Y up, -Z forward).
+func _description_camera_mount() -> Transform3D:
+	if _gimbal_pitch == null:
+		return Transform3D(Basis.IDENTITY, camera_mount_offset)
+	var optical := _camera_optical_node
+	if optical != null:
+		var relative := _relative_transform(_gimbal_pitch, optical)
+		var optical_camera_basis := relative.basis \
+			* SimConfig.body_axes_to_godot(Basis.IDENTITY) \
+			* Basis(Vector3.RIGHT, PI)
+		return Transform3D(optical_camera_basis, relative.origin)
+	if _camera_link_node != null:
+		var link_relative := _relative_transform(_gimbal_pitch, _camera_link_node)
+		var optical_rpy := Vector3(-PI / 2.0, 0.0, -PI / 2.0)
+		var link_camera_basis := link_relative.basis \
+			* SimConfig.body_basis_to_godot(SimConfig.body_rpy_basis(optical_rpy)) \
+			* SimConfig.body_axes_to_godot(Basis.IDENTITY) \
+			* Basis(Vector3.RIGHT, PI)
+		return Transform3D(link_camera_basis, link_relative.origin)
+	# Last resort: keep the calibrated gimbal-aligned mount (Phase 2/4 default)
+	# with the profile's eye offset, and warn once during the build.
+	return Transform3D(Basis(Vector3.UP, deg_to_rad(camera_yaw_offset_deg)),
+		camera_mount_offset)
+
+
+## `node`'s transform relative to `ancestor`, walked through local transforms
+## (which also makes it independent of the rig root's unit_scale).
+static func _relative_transform(ancestor: Node3D, node: Node3D) -> Transform3D:
+	var transform := Transform3D.IDENTITY
+	var current: Node = node
+	while current != null and current != ancestor:
+		if current is Node3D:
+			transform = (current as Node3D).transform * transform
+		current = current.get_parent()
+	if current != ancestor:
+		push_warning("EgoRig: '%s' is not a descendant of '%s'"
+			% [node.name, ancestor.name])
+		return Transform3D.IDENTITY
+	return transform
 
 
 ## Pivot chain around an authored gimbal node: keep the imported subtree, make
@@ -276,6 +428,16 @@ func _build_fallback() -> void:
 		_gimbal_yaw = null
 		_gimbal_pitch = null
 		_gimbal_visual = null
+	if _robot_rig != null:
+		# Description-backed rigs are also `_model_root`; clear it before the
+		# free so the fallback boxes are built under a fresh node.
+		if _model_root == _robot_rig:
+			_model_root = null
+		_robot_rig.queue_free()
+		_robot_rig = null
+		_robot_description = null
+		_camera_link_node = null
+		_camera_optical_node = null
 	if _model_root == null:
 		_model_root = Node3D.new()
 		_model_root.name = "FallbackModel"
@@ -365,10 +527,21 @@ static func cam_direction_transform(marker: Transform3D) -> Transform3D:
 func set_gimbal(yaw_deg: float, pitch_deg: float) -> void:
 	gimbal_yaw_deg = yaw_deg
 	gimbal_pitch_deg = clampf(pitch_deg, -30.0, 30.0)
-	if _gimbal_yaw != null:
-		_gimbal_yaw.rotation.y = deg_to_rad(gimbal_yaw_deg)
-	if _gimbal_pitch != null:
-		_gimbal_pitch.rotation.x = deg_to_rad(gimbal_pitch_deg)
+	if _robot_rig != null:
+		# Description-backed rig: drive the named joints; the axis (and the
+		# sign convention) comes from the URDF/SDF, not from this script. The
+		# sign factors keep the operator convention (positive yaw = left,
+		# positive pitch = up) no matter which way the description points the
+		# joint axes.
+		_robot_rig.set_joint_value(_yaw_joint_name,
+			deg_to_rad(gimbal_yaw_deg) * _yaw_sign)
+		_robot_rig.set_joint_value(_pitch_joint_name,
+			deg_to_rad(gimbal_pitch_deg) * _pitch_sign)
+	else:
+		if _gimbal_yaw != null:
+			_gimbal_yaw.rotation.y = deg_to_rad(gimbal_yaw_deg)
+		if _gimbal_pitch != null:
+			_gimbal_pitch.rotation.x = deg_to_rad(gimbal_pitch_deg)
 	gimbal_changed.emit(gimbal_yaw_deg, gimbal_pitch_deg)
 
 
@@ -383,6 +556,11 @@ func set_chassis_yaw(yaw_deg: float) -> void:
 func set_camera_mount(preset_name: String, yaw_offset_deg: float) -> void:
 	camera_mount_preset = preset_name
 	camera_yaw_offset_deg = yaw_offset_deg
+	# Description-backed rigs take the mount from their optical frame, so the
+	# GLB camera presets ("qyg" / "cad" / "qyg_trim") are not applicable. Keep
+	# the fields in sync but never override the URDF/SDF camera pose.
+	if _robot_rig != null:
+		return
 	if _camera_mount != null and _gimbal_pitch != null:
 		_camera_mount.transform = _make_camera_mount_transform(_gimbal_pitch)
 
@@ -398,10 +576,40 @@ func get_gimbal_link() -> Node3D:
 	return _gimbal_pitch
 
 
+## The gimbal yaw pivot: the root of the whole gimbal chain (yaw platform plus
+## pitch head). Two-axis GLB assets and URDF/SDF descriptions put yaw-only
+## meshes (hopper, big-yaw hardware) under it, so consumers that need "the
+## chassis only" must exclude this subtree, not just the pitch joint. Null only
+## before the rig is built.
+func get_gimbal_yaw() -> Node3D:
+	return _gimbal_yaw
+
+
 ## Pivot that carries the static install-pitch compensation of the head mesh.
-## Null for rigs without a model mesh / compensation.
+## Null for rigs without a model mesh / compensation (and for description-backed
+## rigs, whose joint tree already models the real pitch axis).
 func get_gimbal_visual() -> Node3D:
 	return _gimbal_visual
+
+
+## Phase 5 description-backed rigs expose their ROS camera frames. The backend
+## publishes these relative transforms (the URDF/SDF chain) instead of the GLB
+## mount + fixed optical RPY. Both are null for GLB profiles.
+func get_camera_link() -> Node3D:
+	return _camera_link_node
+
+
+func get_camera_optical_frame() -> Node3D:
+	return _camera_optical_node
+
+
+## The loaded description (null for GLB profiles / before the rig is built).
+func get_robot_description() -> RobotDescription:
+	return _robot_description
+
+
+func get_robot_rig() -> RobotRig:
+	return _robot_rig
 
 
 func _add_box(parent: Node3D, size: Vector3, pos: Vector3, color: Color) -> MeshInstance3D:
@@ -451,42 +659,13 @@ func _set_layers(root: Node, layers: int) -> void:
 			stack.append(child)
 
 
-## The sourced vehicle model uses near-black paint (albedo ~0.008 and pure
-## black). Lift those surfaces slightly so the ego silhouette is readable in
-## the third-person view; team/emissive materials are left untouched.
-func _brighten_dark_materials() -> void:
-	for mi in _all_mesh_instances(self):
-		var mesh := mi.mesh
-		if mesh == null:
-			continue
-		for i in mesh.get_surface_count():
-			var mat := mi.get_active_material(i)
-			if not (mat is StandardMaterial3D):
-				continue
-			var std := mat as StandardMaterial3D
-			if std.emission_enabled:
-				continue
-			if std.albedo_color.get_luminance() > 0.06:
-				continue
-			var lifted := std.duplicate() as StandardMaterial3D
-			lifted.albedo_color = Color(0.085, 0.090, 0.100)
-			lifted.metallic = 0.30
-			lifted.roughness = 0.55
-			mi.set_surface_override_material(i, lifted)
+## Phase 5 material pass. Missing metallic/roughness and anisotropic filtering
+## live in `EgoMaterials` so new assets do not grow this rig. Authored albedo
+## colours/textures are intentionally left untouched (no brightening); the
+## vehicle's dark paint is the GLB's own look.
+func _enhance_materials() -> void:
+	EgoMaterials.enhance(self)
 
-
-func _all_mesh_instances(root: Node) -> Array[MeshInstance3D]:
-	var out: Array[MeshInstance3D] = []
-	var stack: Array[Node] = [root]
-	while not stack.is_empty():
-		var node := stack.pop_back() as Node
-		if node == null:
-			continue
-		if node is MeshInstance3D:
-			out.append(node as MeshInstance3D)
-		for child in node.get_children():
-			stack.append(child)
-	return out
 
 
 # --- profile helper conversions --------------------------------------------

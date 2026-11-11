@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dsa0kvpf4fumi"
-path="res://.godot/imported/debug_robot.glb-edce1d475f6b2f001abde11998b1d0b9.scn"
+uid="uid://d1scv1onkkxd1"
+path="res://.godot/imported/infantry.glb-8f9a5404de86b75b7eb28312dc7223ac.scn"
 
 [deps]
 
-source_file="res://assets/models/ego/debug_robot.glb"
-dest_files=["res://.godot/imported/debug_robot.glb-edce1d475f6b2f001abde11998b1d0b9.scn"]
+source_file="res://assets/robots/infantry/infantry.glb"
+dest_files=["res://.godot/imported/infantry.glb-8f9a5404de86b75b7eb28312dc7223ac.scn"]
 
 [params]
 

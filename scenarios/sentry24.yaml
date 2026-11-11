@@ -1,6 +1,6 @@
 # RM Vision Sim - 2024/2025 sentry ego model scenario.
 #
-# Uses the simplified CAD sentry (`assets/models/ego/24sentry_simplified.glb`,
+# Uses the simplified CAD sentry (`assets/robots/sentry24/24sentry_simplified.glb`,
 # `ego.model: sentry24`, ~160 k triangles / 7.5 MB instead of the 144 MB source
 # assembly). The asset follows the ego model contract; see
 # `tools/build_sentry_glb.py` and `config/ego/sentry24.yaml`.

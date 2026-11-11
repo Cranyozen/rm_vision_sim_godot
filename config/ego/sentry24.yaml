@@ -21,7 +21,7 @@ schema_version: 1
 id: sentry24
 display_name: Sentry 24 (simplified CAD)
 
-scene_path: res://assets/models/ego/24sentry_simplified.glb
+scene_path: res://assets/robots/sentry24/24sentry_simplified.glb
 unit_scale: 1.0
 floor_offset_m: 0.0
 

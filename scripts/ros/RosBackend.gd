@@ -528,12 +528,37 @@ func _publish_gimbal_tf(stamp = null) -> void:
 ## gimbal_link->camera_link (measured mount, static) and
 ## camera_link->camera_optical_frame (REP-103, static). map->odom is dynamic
 ## (see _publish_gimbal_tf), so it is published on every TF tick.
+##
+## Phase 5: a URDF/SDF-backed ego (profile `robot_description`) exposes the real
+## `camera_link` / `camera_optical_frame` nodes. Their actual relative poses are
+## published, so the ROS TF tree is the URDF chain (whatever RPY the description
+## authored) instead of the GLB mount + fixed optical RPY. GLB profiles keep the
+## Phase 2/4 behaviour unchanged.
 func _publish_static_tf_once() -> void:
 	if _static_tf_done or _tf == null or _ego == null:
 		return
-	var mount := _ego.get_camera_mount()
 	var link := _ego.get_gimbal_link()
-	if mount == null or link == null:
+	if link == null:
+		return
+	var description_camera: Node3D = null
+	if _ego.has_method("get_camera_link"):
+		description_camera = _ego.call("get_camera_link") as Node3D
+	var description_optical: Node3D = null
+	if _ego.has_method("get_camera_optical_frame"):
+		description_optical = _ego.call("get_camera_optical_frame") as Node3D
+	if description_camera != null and description_optical != null:
+		var link_to_camera := link.global_transform.affine_inverse() \
+			* description_camera.global_transform
+		_tf.call("send_transform", link_to_camera,
+			RosConfig.FRAME_CAMERA, RosConfig.FRAME_GIMBAL, true, null)
+		var camera_to_optical := description_camera.global_transform \
+			.affine_inverse() * description_optical.global_transform
+		_tf.call("send_transform", camera_to_optical,
+			RosConfig.FRAME_CAMERA_OPTICAL, RosConfig.FRAME_CAMERA, true, null)
+		_static_tf_done = true
+		return
+	var mount := _ego.get_camera_mount()
+	if mount == null:
 		return
 	var mount_in_gimbal := link.global_transform.affine_inverse() * mount.global_transform
 	_tf.call("send_transform", mount_in_gimbal,

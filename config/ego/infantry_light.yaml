@@ -9,7 +9,7 @@ schema_version: 1
 id: infantry_light
 display_name: Infantry (light chassis)
 
-scene_path: res://assets/models/ego/infantry.glb
+scene_path: res://assets/robots/infantry/infantry.glb
 unit_scale: 0.001            # the GLB is authored in millimetres
 floor_offset_m: 0.074366
 

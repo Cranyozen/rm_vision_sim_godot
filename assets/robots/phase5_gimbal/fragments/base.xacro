@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!--
+  Included xacro fragment for the Phase 5 sample robot.
+
+  Inserted as a child of <robot> by ../../robot.urdf.xacro, so it contributes
+  one <link>. It relies on properties/args defined in the including file
+  (xacro include expansion is textual and the property pass runs over the
+  expanded document).
+-->
+<link name="$(arg prefix)base_link">
+  <visual name="base_body">
+    <origin xyz="0 0 ${base_height / 2}" rpy="0 0 0"/>
+    <geometry>
+      <box size="${body_width} ${body_depth} ${base_height}"/>
+    </geometry>
+    <material name="body_grey"/>
+  </visual>
+</link>

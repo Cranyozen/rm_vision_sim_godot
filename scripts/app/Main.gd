@@ -900,48 +900,10 @@ func _vec3(value: Variant, fallback: Vector3) -> Vector3:
 
 # --- construction -----------------------------------------------------------
 
+## Phase 5: the world environment + key/fill lights live in RenderQuality so
+## the quality tier is one data choice (Phase 6 adds performance presets).
 func _build_environment() -> void:
-	var we := WorldEnvironment.new()
-	we.name = "WorldEnvironment"
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	var sky := Sky.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.11, 0.19, 0.30)
-	sky_mat.sky_horizon_color = Color(0.52, 0.60, 0.68)
-	sky_mat.ground_bottom_color = Color(0.045, 0.05, 0.055)
-	sky_mat.ground_horizon_color = Color(0.30, 0.32, 0.34)
-	sky_mat.sun_angle_max = 30.0
-	sky_mat.sun_curve = 0.12
-	sky.sky_material = sky_mat
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.85
-	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
-	env.glow_enabled = false
-	env.ssao_enabled = false
-	we.environment = env
-	add_child(we)
-
-	var sun := DirectionalLight3D.new()
-	sun.name = "Sun"
-	sun.rotation_degrees = Vector3(-48.0, -35.0, 0.0)
-	sun.light_color = Color(1.0, 0.95, 0.88)
-	sun.light_energy = 1.15
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 40.0
-	add_child(sun)
-
-	# Soft fill from the opposite side so the ego's dark materials stay readable.
-	var fill := DirectionalLight3D.new()
-	fill.name = "Fill"
-	fill.rotation_degrees = Vector3(-22.0, 145.0, 0.0)
-	fill.light_color = Color(0.62, 0.72, 0.90)
-	fill.light_energy = 0.30
-	fill.shadow_enabled = false
-	add_child(fill)
+	RenderQuality.build_environment(self, RenderQuality.DEFAULT_PRESET)
 
 
 func _build_feed() -> void:

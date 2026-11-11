@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dqbg6kkq28vyn"
-path="res://.godot/imported/armor_large.glb-aedb364f29383b51f7142c05eb92e250.scn"
+uid="uid://cmcggts2j2en"
+path="res://.godot/imported/armor_small.glb-eae8f1a32f2264ae24bd70207347fd15.scn"
 
 [deps]
 
-source_file="res://assets/models/armor/armor_large.glb"
-dest_files=["res://.godot/imported/armor_large.glb-aedb364f29383b51f7142c05eb92e250.scn"]
+source_file="res://assets/armor/armor_small.glb"
+dest_files=["res://.godot/imported/armor_small.glb-eae8f1a32f2264ae24bd70207347fd15.scn"]
 
 [params]
 

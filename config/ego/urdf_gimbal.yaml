@@ -1,0 +1,30 @@
+# Ego model profile: Phase 5 sample URDF robot.
+#
+# Instead of an imported GLB scene this profile points at a robot description.
+# `EgoRig` loads `assets/robots/phase5_gimbal/robot.urdf`, builds the link/joint
+# tree with `RobotRig`, drives the two named gimbal joints and takes the camera
+# mount from the description's `camera_optical_frame`. `scene_path` is optional
+# (and empty) for description-backed profiles.
+#
+# Run: godot --path . -- --scenario=res://scenarios/phase5_urdf.yaml
+
+schema_version: 1
+id: urdf_gimbal
+display_name: URDF sample gimbal
+
+scene_path: ""
+unit_scale: 1.0
+floor_offset_m: 0.0
+
+# No authored GLB nodes: the description owns the joints.
+gimbal_node: ""
+gimbal_yaw_node: ""
+
+robot_description:
+  format: urdf
+  path: res://assets/robots/phase5_gimbal/robot.urdf
+  yaw_joint: gimbal_yaw_joint
+  pitch_joint: gimbal_pitch_joint
+  camera_link: camera_link
+  camera_optical_frame: camera_optical_frame
+

@@ -1,0 +1,403 @@
+{
+  "robot_name": "sentry24",
+  "source": "24哨兵-总装.glb",
+  "frame_note": "positions are Godot world coords (metres, +Y up, -Z forward); meshes are Godot-frame OBJ with the origin on the link frame",
+  "links": {
+    "base_link": {
+      "mesh": "meshes/base_link.obj",
+      "triangles": 110066,
+      "frame_godot": [
+        0.0,
+        0.0,
+        -0.0
+      ],
+      "aabb_godot": [
+        [
+          -0.23657098412513733,
+          0.03704965487122536,
+          -0.29743692278862
+        ],
+        [
+          0.2365710437297821,
+          0.25960487127304077,
+          0.29743704199790955
+        ]
+      ]
+    },
+    "wheel_front_left": {
+      "mesh": "meshes/wheel_front_left.obj",
+      "triangles": 17986,
+      "frame_godot": [
+        -0.155006,
+        0.06505,
+        -0.185226
+      ],
+      "aabb_godot": [
+        [
+          -0.2132868766784668,
+          -0.0002446356229484081,
+          -0.24284516274929047
+        ],
+        [
+          -0.09799721837043762,
+          0.13070568442344666,
+          -0.1290895640850067
+        ]
+      ]
+    },
+    "wheel_front_right": {
+      "mesh": "meshes/wheel_front_right.obj",
+      "triangles": 17937,
+      "frame_godot": [
+        0.155006,
+        0.06505,
+        -0.185226
+      ],
+      "aabb_godot": [
+        [
+          0.09976905584335327,
+          -7.285692845471203e-05,
+          -0.24339909851551056
+        ],
+        [
+          0.21215176582336426,
+          0.1310177892446518,
+          -0.13392186164855957
+        ]
+      ]
+    },
+    "steer_rear_left": {
+      "mesh": "meshes/steer_rear_left.obj",
+      "triangles": 6106,
+      "frame_godot": [
+        -0.153399,
+        0.128478,
+        0.175
+      ],
+      "aabb_godot": [
+        [
+          -0.21825486421585083,
+          0.029977548867464066,
+          0.12026360630989075
+        ],
+        [
+          -0.0845000147819519,
+          0.21552503108978271,
+          0.22987040877342224
+        ]
+      ]
+    },
+    "steer_rear_right": {
+      "mesh": "meshes/steer_rear_right.obj",
+      "triangles": 6129,
+      "frame_godot": [
+        0.153399,
+        0.128478,
+        0.175
+      ],
+      "aabb_godot": [
+        [
+          0.0845000147819519,
+          0.02997753396630287,
+          0.11980035901069641
+        ],
+        [
+          0.2202669084072113,
+          0.21709349751472473,
+          0.22987040877342224
+        ]
+      ]
+    },
+    "wheel_rear_left": {
+      "mesh": "meshes/wheel_rear_left.obj",
+      "triangles": 2500,
+      "frame_godot": [
+        -0.155,
+        0.059978,
+        0.175
+      ],
+      "aabb_godot": [
+        [
+          -0.19358496367931366,
+          7.265409658430144e-05,
+          0.1166442334651947
+        ],
+        [
+          -0.11642694473266602,
+          0.11988455802202225,
+          0.2333557903766632
+        ]
+      ]
+    },
+    "wheel_rear_right": {
+      "mesh": "meshes/wheel_rear_right.obj",
+      "triangles": 2500,
+      "frame_godot": [
+        0.155,
+        0.059978,
+        0.175
+      ],
+      "aabb_godot": [
+        [
+          0.11639934778213501,
+          7.264266605488956e-05,
+          0.11663886904716492
+        ],
+        [
+          0.1935730278491974,
+          0.11988243460655212,
+          0.2333560287952423
+        ]
+      ]
+    },
+    "gimbal_yaw_link": {
+      "mesh": "meshes/gimbal_yaw_link.obj",
+      "triangles": 50494,
+      "frame_godot": [
+        -0.000321,
+        0.139978,
+        -0.007531
+      ],
+      "aabb_godot": [
+        [
+          -0.19261330366134644,
+          0.08812446147203445,
+          -0.12416940927505493
+        ],
+        [
+          0.22527340054512024,
+          0.45322898030281067,
+          0.24202194809913635
+        ]
+      ]
+    },
+    "gimbal_pitch_link": {
+      "mesh": "meshes/gimbal_pitch_link.obj",
+      "triangles": 31985,
+      "frame_godot": [
+        0.029664,
+        0.354978,
+        -0.067146
+      ],
+      "aabb_godot": [
+        [
+          -0.11230482161045074,
+          0.20299917459487915,
+          -0.21184992790222168
+        ],
+        [
+          0.11350229382514954,
+          0.42570310831069946,
+          0.16373834013938904
+        ]
+      ]
+    }
+  },
+  "frames": {
+    "base_link": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "gimbal_yaw_link": [
+      -0.000321,
+      0.139978,
+      -0.007531
+    ],
+    "gimbal_pitch_link": [
+      0.029664,
+      0.354978,
+      -0.067146
+    ],
+    "camera_link": [
+      -0.033906,
+      0.398202,
+      -0.203876
+    ],
+    "shot_direction": [
+      -0.033906,
+      0.354661,
+      -0.185126
+    ]
+  },
+  "joints": [
+    {
+      "name": "wheel_front_left_joint",
+      "type": "continuous",
+      "parent": "base_link",
+      "child": "wheel_front_left",
+      "origin_godot": [
+        -0.155006,
+        0.06505,
+        -0.185226
+      ],
+      "axis_godot": [
+        1.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "name": "wheel_front_right_joint",
+      "type": "continuous",
+      "parent": "base_link",
+      "child": "wheel_front_right",
+      "origin_godot": [
+        0.155006,
+        0.06505,
+        -0.185226
+      ],
+      "axis_godot": [
+        1.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "name": "steer_rear_left_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "steer_rear_left",
+      "origin_godot": [
+        -0.153399,
+        0.128478,
+        0.175
+      ],
+      "axis_godot": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "limit": [
+        -3.14159,
+        3.14159
+      ]
+    },
+    {
+      "name": "wheel_rear_left_joint",
+      "type": "continuous",
+      "parent": "steer_rear_left",
+      "child": "wheel_rear_left",
+      "origin_godot": [
+        -0.155,
+        0.059978,
+        0.175
+      ],
+      "axis_godot": [
+        1.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "name": "steer_rear_right_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "steer_rear_right",
+      "origin_godot": [
+        0.153399,
+        0.128478,
+        0.175
+      ],
+      "axis_godot": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "limit": [
+        -3.14159,
+        3.14159
+      ]
+    },
+    {
+      "name": "wheel_rear_right_joint",
+      "type": "continuous",
+      "parent": "steer_rear_right",
+      "child": "wheel_rear_right",
+      "origin_godot": [
+        0.155,
+        0.059978,
+        0.175
+      ],
+      "axis_godot": [
+        1.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "name": "gimbal_yaw_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "gimbal_yaw_link",
+      "origin_godot": [
+        -0.000321,
+        0.139978,
+        -0.007531
+      ],
+      "axis_godot": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "limit": [
+        -3.14159,
+        3.14159
+      ]
+    },
+    {
+      "name": "gimbal_pitch_joint",
+      "type": "revolute",
+      "parent": "gimbal_yaw_link",
+      "child": "gimbal_pitch_link",
+      "origin_godot": [
+        0.029664,
+        0.354978,
+        -0.067146
+      ],
+      "axis_godot": [
+        -1.0,
+        0.0,
+        -0.0
+      ],
+      "limit": [
+        -0.5236,
+        0.5236
+      ]
+    },
+    {
+      "name": "camera_joint",
+      "type": "fixed",
+      "parent": "gimbal_pitch_link",
+      "child": "camera_link",
+      "origin_godot": [
+        -0.033906,
+        0.398202,
+        -0.203876
+      ]
+    },
+    {
+      "name": "camera_optical_joint",
+      "type": "fixed",
+      "parent": "camera_link",
+      "child": "camera_optical_frame",
+      "origin_godot": [
+        -0.033906,
+        0.398202,
+        -0.203876
+      ],
+      "optical": true
+    },
+    {
+      "name": "shot_joint",
+      "type": "fixed",
+      "parent": "gimbal_pitch_link",
+      "child": "shot_direction",
+      "origin_godot": [
+        -0.033906,
+        0.354661,
+        -0.185126
+      ]
+    }
+  ]
+}

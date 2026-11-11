@@ -1,0 +1,44 @@
+# RM Vision Sim - Phase 5 scenario: URDF-backed ego on the flat range.
+#
+# `ego.model: urdf_gimbal` loads `assets/robots/phase5_gimbal/robot.urdf` and
+# builds the ego from the description (two-axis gimbal + camera optical frame).
+# Use it to check that the feed/FPV follow the URDF camera chain and that the
+# gimbal yaw/pitch joints respond to Q/E/R/F and to QYG GimbalCmd.
+
+schema_version: 1
+name: phase5_urdf
+field: flat
+ros:
+  backend: rclgd
+  raw_encoding: rgb8
+  raw_hz: 30.0
+  compressed_hz: 60.0
+  jpeg_quality: 90
+  enabled: true
+camera:
+  preset: qyg
+  yaw_offset_deg: 0.0
+  fpv_fov_deg: 70.0
+ego:
+  model: urdf_gimbal
+  position: [0.0, 0.0, 2.4]
+  yaw_deg: 0.0
+targets:
+  - id: t1
+    team: red
+    armor: small
+    number: "3"
+    position: [-1.2, 0.0, -1.0]
+    yaw_deg: 180.0
+    motion:
+      type: static
+      mode: once
+  - id: t2
+    team: blue
+    armor: large
+    number: "1"
+    position: [1.4, 0.0, -1.8]
+    yaw_deg: 200.0
+    motion:
+      type: static
+      mode: once

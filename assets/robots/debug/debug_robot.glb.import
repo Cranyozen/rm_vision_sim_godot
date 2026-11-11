@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b1xblhsw3kubo"
-path="res://.godot/imported/vehicle.glb-8c38ed174211c9f69aec06b854a83dbc.scn"
+uid="uid://dsa0kvpf4fumi"
+path="res://.godot/imported/debug_robot.glb-18d732b893cceb51947089b43d5533ad.scn"
 
 [deps]
 
-source_file="res://assets/models/ego/vehicle.glb"
-dest_files=["res://.godot/imported/vehicle.glb-8c38ed174211c9f69aec06b854a83dbc.scn"]
+source_file="res://assets/robots/debug/debug_robot.glb"
+dest_files=["res://.godot/imported/debug_robot.glb-18d732b893cceb51947089b43d5533ad.scn"]
 
 [params]
 

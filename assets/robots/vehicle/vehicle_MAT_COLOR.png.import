@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://di6l4h4a82skt"
-path.s3tc="res://.godot/imported/vehicle_MAT_COLOR.png-9668ce78cbda21fcb6b8fcc15f3ad8b9.s3tc.ctex"
+path.s3tc="res://.godot/imported/vehicle_MAT_COLOR.png-1c33872cb6398087e03836bed3f8ea9d.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -14,8 +14,8 @@ generator_parameters={
 
 [deps]
 
-source_file="res://assets/models/ego/vehicle_MAT_COLOR.png"
-dest_files=["res://.godot/imported/vehicle_MAT_COLOR.png-9668ce78cbda21fcb6b8fcc15f3ad8b9.s3tc.ctex"]
+source_file="res://assets/robots/vehicle/vehicle_MAT_COLOR.png"
+dest_files=["res://.godot/imported/vehicle_MAT_COLOR.png-1c33872cb6398087e03836bed3f8ea9d.s3tc.ctex"]
 
 [params]
 

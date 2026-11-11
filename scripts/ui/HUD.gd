@@ -183,7 +183,7 @@ func _refresh_status(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: flo
 		drive = tr("independent (C = toggle)")
 	var shown_targets := target_count if target_count >= 0 else _target_count
 	_status.text = (
-		tr("RM VISION SIM · PHASE 4") + "\n"
+		tr("RM VISION SIM · PHASE 5") + "\n"
 		+ tr("Scenario: %s   Field: %s") % [
 			scenario_name if scenario_name != "" else "—",
 			field if field != "" else "—"]

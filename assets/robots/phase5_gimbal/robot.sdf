@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<!--
+  Phase 5 sample robot: two-axis gimbal camera head, SDF form.
+
+  Frame: SDF body frame (metres, +X forward, +Y left, +Z up); the loader
+  converts every pose and axis to the Godot frame.
+
+  SDF pose semantics used here:
+  - link <pose> is relative to the model (default);
+  - joint <pose> is relative to the child link (default, so omitted here);
+    the loader derives the child-relative-to-parent origin from the link
+    poses: parent^-1 * child.
+  The chain is the same as robot.urdf: base -> yaw -> pitch -> camera_link ->
+  camera_optical_frame, plus the prismatic slider test link.
+
+  meshes/head.obj is authored in the Godot frame (Y up, -Z forward).
+-->
+<sdf version="1.7">
+  <model name="phase5_gimbal">
+
+    <link name="base_link">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="base_body">
+        <pose>0 0 0.10 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.40 0.30 0.20</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.10 0.11 0.12 1</ambient>
+          <diffuse>0.22 0.24 0.27 1</diffuse>
+          <pbr>
+            <metal>
+              <metallic>0.40</metallic>
+              <roughness>0.55</roughness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+
+    <link name="gimbal_yaw_link">
+      <pose>0 0 0.22 0 0 0</pose>
+      <visual name="yaw_bearing">
+        <pose>0 0 0.04 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.05</radius>
+            <length>0.08</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <diffuse>0.10 0.11 0.13 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="gimbal_pitch_link">
+      <pose>0 0 0.30 0 0 0</pose>
+      <visual name="head">
+        <pose>0.05 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>meshes/head.obj</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.10 0.11 0.13 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <link name="camera_link">
+      <pose>0.05 0 0.30 0 0 0</pose>
+    </link>
+
+    <link name="camera_optical_frame">
+      <pose>0.05 0 0.30 -1.5707963267948966 0 -1.5707963267948966</pose>
+    </link>
+
+    <link name="slider_link">
+      <pose>-0.14 0 0.20 0 0 0</pose>
+      <visual name="slider_body">
+        <pose>0 0 0.015 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.06 0.06 0.03</size>
+          </box>
+        </geometry>
+        <material>
+          <diffuse>0.22 0.24 0.27 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <joint name="gimbal_yaw_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>gimbal_yaw_link</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-2.0</lower>
+          <upper>2.0</upper>
+          <effort>5.0</effort>
+          <velocity>3.0</velocity>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="gimbal_pitch_joint" type="revolute">
+      <parent>gimbal_yaw_link</parent>
+      <child>gimbal_pitch_link</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.6</lower>
+          <upper>0.6</upper>
+          <effort>5.0</effort>
+          <velocity>3.0</velocity>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="camera_joint" type="fixed">
+      <parent>gimbal_pitch_link</parent>
+      <child>camera_link</child>
+    </joint>
+
+    <joint name="camera_optical_joint" type="fixed">
+      <parent>camera_link</parent>
+      <child>camera_optical_frame</child>
+    </joint>
+
+    <joint name="slider_joint" type="prismatic">
+      <parent>base_link</parent>
+      <child>slider_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit>
+          <lower>0.0</lower>
+          <upper>0.05</upper>
+          <effort>5.0</effort>
+          <velocity>0.2</velocity>
+        </limit>
+      </axis>
+    </joint>
+
+  </model>
+</sdf>

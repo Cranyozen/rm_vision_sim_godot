@@ -10,7 +10,7 @@ extends Node3D
 ## plate by `MOUNT_TILT_DEG`; the front normal then points 15 deg upward.
 ##
 ## Geometry and skin come straight from the Bevy simulator's official robot
-## assets: `assets/models/armor/armor_small.glb` is the AM02 module extracted
+## assets: `assets/armor/armor_small.glb` is the AM02 module extracted
 ## from Bevy's `vehicle.glb` and `armor_large.glb` is the AM12 module extracted
 ## from `HERO.glb` (tools/extract_armor.py). The number is white geometry, not
 ## a texture decal, and the team light bars are emissive meshes; Bevy shows the
@@ -27,8 +27,8 @@ var armor_size := "small"       ## small | large
 var number := "1"
 
 const ARMOR_MODELS := {
-	"small": preload("res://assets/models/armor/armor_small.glb"),
-	"large": preload("res://assets/models/armor/armor_large.glb"),
+	"small": preload("res://assets/armor/armor_small.glb"),
+	"large": preload("res://assets/armor/armor_large.glb"),
 }
 
 ## Measured envelope of the extracted game modules (width, height, depth) in

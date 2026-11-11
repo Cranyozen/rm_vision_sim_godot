@@ -1,0 +1,37 @@
+# Ego model profile: 24-sentry as a URDF robot description (Phase 5 path).
+#
+# Instead of an imported GLB scene this profile points at a robot description.
+# `EgoRig` loads `assets/robots/sentry24/robot.urdf`, builds the link/joint tree
+# with `RobotRig`, drives the two gimbal joints and takes the camera mount from
+# the description's optical frame, so the feed, the FPV and the published ROS
+# camera chain all come from the same URDF transform.
+#
+# The description is generated from the CAD by
+# `tools/build_sentry_urdf_assets.py` (Blender) -> manifest.json and
+# `tools/prepare_sentry_urdf.py` -> robot.urdf. Meshes are Godot-frame OBJ
+# files (Y up, -Z forward) as the Phase 5 mesh convention requires; the URDF
+# itself is authored in the REP-103 body frame.
+#
+# Chain: base_link -> (4 wheels) and base_link -> gimbal_yaw_link ->
+# gimbal_pitch_link -> camera_link -> camera_optical_frame.
+
+schema_version: 1
+id: sentry24_urdf
+display_name: Sentry 24 (URDF)
+
+scene_path: ""
+unit_scale: 1.0
+floor_offset_m: 0.0
+
+# No authored GLB nodes: the description owns the joints.
+gimbal_node: ""
+gimbal_yaw_node: ""
+
+robot_description:
+  format: urdf
+  path: res://assets/robots/sentry24/robot.urdf
+  yaw_joint: gimbal_yaw_joint
+  pitch_joint: gimbal_pitch_joint
+  camera_link: camera_link
+  camera_optical_frame: camera_optical_frame
+

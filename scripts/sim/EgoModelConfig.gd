@@ -39,6 +39,20 @@ extends RefCounted
 ##         rotation_deg: [0, 0, 0]
 ##         color: [0.06, 0.07, 0.08, 1.0]
 ##
+## Phase 5 adds two optional blocks. A profile may be backed by a URDF/SDF
+## robot description instead of an imported GLB scene (`scene_path` is then
+## optional); the rig loads the description, drives the named joints and takes
+## the camera mount from the optical frame:
+##
+##   robot_description:
+##     format: urdf                 # urdf | sdf
+##     path: res://assets/robots/phase5_gimbal/robot.urdf
+##     mesh_root: ""                # optional mesh remap root (default: path dir)
+##     yaw_joint: gimbal_yaw_joint  # revolute joint driven by EgoRig yaw
+##     pitch_joint: gimbal_pitch_joint  # revolute joint driven by EgoRig pitch
+##     camera_link: camera_link     # optional ROS camera_link frame
+##     camera_optical_frame: camera_optical_frame  # optional REP-103 optical frame
+##
 ## The standard model contract: metres, Y up, forward = -Z at yaw 0, origin at
 ## the chassis centre on the ground, a gimbal pivot node (`GIMBAL`) and a
 ## `CAM_DIRECTION` empty under it. Assets that do not follow it (chassis-only
@@ -64,7 +78,20 @@ const DEFAULTS := {
 	"camera_mount_fallback_m": [0.0, 0.0, 0.0],
 	"hide_node_prefixes": [],
 	"synthetic_gimbal": {},
+	"robot_description": {},
 }
+
+const ROBOT_DESCRIPTION_DEFAULTS := {
+	"format": "",
+	"path": "",
+	"mesh_root": "",
+	"yaw_joint": "",
+	"pitch_joint": "",
+	"camera_link": "",
+	"camera_optical_frame": "",
+}
+
+const ROBOT_DESCRIPTION_FORMATS := ["urdf", "sdf"]
 
 const SYNTHETIC_DEFAULTS := {
 	"yaw_joint_m": [0.0, 0.0, 0.0],
@@ -194,9 +221,13 @@ static func normalize(data: Variant, path: String,
 		errors.append("%s: missing required key 'id'" % path)
 	out["display_name"] = _string(src.get("display_name"), String(out["id"]))
 	out["scene_path"] = _string(src.get("scene_path"), "")
-	if out["scene_path"].is_empty():
-		errors.append("%s: missing required key 'scene_path'" % path)
-	elif not FileAccess.file_exists(out["scene_path"]):
+	out["robot_description"] = _normalize_robot_description(
+		src.get("robot_description"), path, errors, warnings)
+	var description_path := String(out["robot_description"]["path"])
+	if out["scene_path"].is_empty() and description_path.is_empty():
+		errors.append("%s: missing required key 'scene_path' (or robot_description.path)"
+			% path)
+	elif not out["scene_path"].is_empty() and not FileAccess.file_exists(out["scene_path"]):
 		errors.append("%s: scene_path not found: %s" % [path, out["scene_path"]])
 
 	out["unit_scale"] = _float(src.get("unit_scale"), 1.0)
@@ -274,6 +305,57 @@ static func _normalize_part(src: Dictionary, path: String,
 	out["color"] = _vec4(src.get("color"), [0.08, 0.09, 0.10, 1.0])
 	_unknown_keys(src, PART_DEFAULTS.keys(), path, warnings)
 	return out
+
+
+static func _normalize_robot_description(value: Variant, path: String,
+		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
+	var out := ROBOT_DESCRIPTION_DEFAULTS.duplicate(true)
+	if value == null:
+		return out
+	if typeof(value) != TYPE_DICTIONARY:
+		errors.append("%s: robot_description must be a mapping" % path)
+		return out
+	var src: Dictionary = value
+	out["format"] = _string(src.get("format"), "").to_lower()
+	out["path"] = _string(src.get("path"), "")
+	out["mesh_root"] = _string(src.get("mesh_root"), "")
+	out["yaw_joint"] = _string(src.get("yaw_joint"), "")
+	out["pitch_joint"] = _string(src.get("pitch_joint"), "")
+	out["camera_link"] = _string(src.get("camera_link"), "")
+	out["camera_optical_frame"] = _string(src.get("camera_optical_frame"), "")
+	if out["path"].is_empty():
+		errors.append("%s: robot_description.path is required when the block is present"
+			% path)
+	else:
+		if out["format"].is_empty():
+			out["format"] = _infer_description_format(out["path"])
+		if not out["format"] in ROBOT_DESCRIPTION_FORMATS:
+			errors.append("%s: robot_description.format must be urdf | sdf (got '%s')"
+				% [path, out["format"]])
+			out["format"] = ""
+		if not FileAccess.file_exists(out["path"]):
+			errors.append("%s: robot_description.path not found: %s"
+				% [path, out["path"]])
+		if not out["mesh_root"].is_empty() and not DirAccess.dir_exists_absolute(
+				out["mesh_root"]):
+			errors.append("%s: robot_description.mesh_root not found: %s"
+				% [path, out["mesh_root"]])
+		if out["yaw_joint"].is_empty():
+			errors.append("%s: robot_description.yaw_joint is required" % path)
+		if out["pitch_joint"].is_empty():
+			errors.append("%s: robot_description.pitch_joint is required" % path)
+	_unknown_keys(src, ROBOT_DESCRIPTION_DEFAULTS.keys(), path, warnings)
+	return out
+
+
+## Description format when the profile omits it: use the file extension.
+static func _infer_description_format(description_path: String) -> String:
+	var extension := description_path.get_extension().to_lower()
+	if extension == "xacro":
+		return "urdf"
+	if extension in ROBOT_DESCRIPTION_FORMATS:
+		return extension
+	return ""
 
 
 # --- parsing helpers --------------------------------------------------------

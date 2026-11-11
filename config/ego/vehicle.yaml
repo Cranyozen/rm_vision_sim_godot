@@ -9,7 +9,7 @@ schema_version: 1
 id: vehicle
 display_name: Vehicle (full CAD)
 
-scene_path: res://assets/models/ego/vehicle.glb
+scene_path: res://assets/robots/vehicle/vehicle.glb
 unit_scale: 1.0
 
 # vehicle.glb's chassis bottom is at y = -0.2101; lift the asset so it sits on

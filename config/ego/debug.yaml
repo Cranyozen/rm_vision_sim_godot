@@ -8,7 +8,7 @@ schema_version: 1
 id: debug
 display_name: Debug box robot
 
-scene_path: res://assets/models/ego/debug_robot.glb
+scene_path: res://assets/robots/debug/debug_robot.glb
 unit_scale: 1.0
 floor_offset_m: 0.0
 

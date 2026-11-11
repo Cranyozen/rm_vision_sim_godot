@@ -1,6 +1,6 @@
 # RM Vision Sim - minimal debug scenario.
 #
-# Uses the tiny generated ego model (`assets/models/ego/debug_robot.glb`,
+# Uses the tiny generated ego model (`assets/robots/debug/debug_robot.glb`,
 # `ego.model: debug`) instead of the 29.6 MB vehicle.glb so camera, feed and
 # ROS/TF debugging starts instantly. The model is simple boxes plus the
 # required `GIMBAL` pivot and `CAM_DIRECTION` marker; see
