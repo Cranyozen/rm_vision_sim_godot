@@ -1,14 +1,15 @@
-# RM Vision Sim - 2024/2025 sentry ego model scenario (URDF description).
+# RM Vision Sim - minimal debug scenario.
 #
-# Uses the same robot through its URDF description
-# (`assets/robots/sentry24/robot.urdf`, `ego.model: sentry24_urdf`), so the
-# gimbal joints and the camera chain come from the description instead of the
-# GLB nodes; see `config/ego/sentry24_urdf.yaml`.
+# Uses the tiny generated ego model (`assets/robots/debug/debug_robot.glb`,
+# `ego.model: debug`) instead of the 29.6 MB vehicle.glb so camera, feed and
+# ROS/TF debugging starts instantly. The model is simple boxes plus the
+# required `GIMBAL` pivot and `CAM_DIRECTION` marker; see
+# `tools/make_debug_robot.py`.
 #
-# Run:  godot --path . -- --scenario=res://scenarios/sentry24.yaml
+# Run:  godot --path . -- --scenario=res://config/scenarios/debug_robot.yaml
 
 schema_version: 1
-name: sentry24_urdf
+name: debug_robot
 field: flat
 ros:
   backend: rclgd
@@ -22,7 +23,7 @@ camera:
   yaw_offset_deg: 0.0
   fpv_fov_deg: 70.0
 ego:
-  model: sentry24_urdf
+  model: debug
   position: [0.0, 0.0, 2.2]
   yaw_deg: 0.0
 targets:

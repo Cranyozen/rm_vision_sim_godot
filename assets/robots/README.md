@@ -27,4 +27,4 @@ Robot mesh conventions:
 
 Per-robot regeneration and chain details are in each directory's `README.md`
 where present (`sentry24/`, `phase5_gimbal/`). Profiles are in `config/ego/`,
-scenarios in `scenarios/`.
+scenarios in `config/scenarios/`.

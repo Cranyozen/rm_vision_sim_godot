@@ -4,4 +4,4 @@
 # field, ros, camera, ego and target settings; this file only selects the
 # startup scenario (the UI can switch it at runtime).
 
-scenario: res://scenarios/1v1_static.yaml
+scenario: res://config/scenarios/1v1_static.yaml

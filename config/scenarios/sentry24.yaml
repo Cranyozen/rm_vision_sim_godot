@@ -5,7 +5,7 @@
 # assembly). The asset follows the ego model contract; see
 # `tools/build_sentry_glb.py` and `config/ego/sentry24.yaml`.
 #
-# Run:  godot --path . -- --scenario=res://scenarios/sentry24.yaml
+# Run:  godot --path . -- --scenario=res://config/scenarios/sentry24.yaml
 
 schema_version: 1
 name: sentry24

@@ -52,7 +52,7 @@ visual and is otherwise identical.
 
 ```bash
 # simulator (Phase 5 path): ego.model: sentry24_urdf
-godot --path . -- --scenario=res://scenarios/sentry24_urdf.yaml
+godot --path . -- --scenario=res://config/scenarios/sentry24_urdf.yaml
 ```
 
 ```bash

@@ -6,17 +6,17 @@ extends RefCounted
 ##
 ## Startup order:
 ##   1. `--scenario=<path>` after `--` on the Godot command line
-##      (e.g. `godot --path . -- --scenario=res://scenarios/1v1_line.yaml`)
+##      (e.g. `godot --path . -- --scenario=res://config/scenarios/1v1_line.yaml`)
 ##   2. `scenario:` from res://config/app.yaml
-##   3. res://scenarios/1v1_static.yaml
+##   3. res://config/scenarios/1v1_static.yaml
 ##
-## Scenarios are looked up under res://scenarios and user://scenarios (the UI
+## Scenarios are looked up under res://config/scenarios and user://scenarios (the UI
 ## "Save YAML" writes into the latter). ScenarioSchema validates and normalizes
 ## the parsed dictionary; YamlWriter writes it back.
 
-const DEFAULT_SCENARIO_PATH := "res://scenarios/1v1_static.yaml"
+const DEFAULT_SCENARIO_PATH := "res://config/scenarios/1v1_static.yaml"
 const APP_CONFIG_PATH := "res://config/app.yaml"
-const SCENARIO_DIR := "res://scenarios"
+const SCENARIO_DIR := "res://config/scenarios"
 const USER_SCENARIO_DIR := "user://scenarios"
 
 
@@ -120,7 +120,7 @@ static func save_scenario(path: String, data: Dictionary) -> Dictionary:
 
 
 ## Resolve a scenario reference from config / CLI. Bare names are looked up in
-## res://scenarios; paths with a scheme are used as-is.
+## res://config/scenarios; paths with a scheme are used as-is.
 static func _resolve_path(reference: String) -> String:
 	if reference.begins_with("res://") or reference.begins_with("user://"):
 		return reference

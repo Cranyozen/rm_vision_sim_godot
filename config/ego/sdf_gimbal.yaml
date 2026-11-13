@@ -6,7 +6,7 @@
 # chain. The `.sdf` extension picks `SdfLoader` (schema version 2, see
 # docs/EGO_MODEL_CONTRACT.md).
 #
-# Run: godot --path . -- --scenario=res://scenarios/phase5_sdf.yaml
+# Run: godot --path . -- --scenario=res://config/scenarios/phase5_sdf.yaml
 
 schema_version: 2
 id: sdf_gimbal

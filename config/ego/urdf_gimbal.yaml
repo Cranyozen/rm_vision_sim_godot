@@ -6,7 +6,7 @@
 # mount from the description's `camera_optical_frame` (schema version 2, see
 # docs/EGO_MODEL_CONTRACT.md).
 #
-# Run: godot --path . -- --scenario=res://scenarios/phase5_urdf.yaml
+# Run: godot --path . -- --scenario=res://config/scenarios/phase5_urdf.yaml
 
 schema_version: 2
 id: urdf_gimbal
