@@ -2,10 +2,11 @@
 
 One directory per robot. Both ego model routes live here:
 
-- **GLB profiles** load a Godot-imported scene (`scene_path` in
-  `config/ego/<id>.yaml`).
-- **Description profiles** load a URDF/SDF (`robot_description.path`) and build
-  the link/joint tree with `UrdfLoader` / `SdfLoader` + `RobotRig`.
+- **GLB profiles** load a Godot-imported scene (`asset.path` ending in
+  `.glb` in `config/ego/<id>.yaml`).
+- **Description profiles** load a URDF/SDF (`asset.path` ending in
+  `.urdf`/`.xacro`/`.sdf`) and build the link/joint tree with `UrdfLoader` /
+  `SdfLoader` + `RobotRig`.
 
 | Directory | Used by | Contents |
 | --- | --- | --- |

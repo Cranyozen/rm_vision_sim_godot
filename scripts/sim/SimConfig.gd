@@ -49,8 +49,13 @@ const EGO_DEFAULT_MODEL := "vehicle"
 const QYG_CAMERA_OFFSET := Vector3(0.0461892, 0.0, -0.0603874)
 const QYG_CAMERA_RPY := Vector3(0.0, 0.091, 0.0)
 
+## Default name of the gimbal pitch pivot node inside an imported ego scene. A
+## profile may override it with `gimbal.pitch_node`; chassis-only assets that
+## have no such node declare `gimbal.synthetic` instead.
+const GIMBAL_NODE := "GIMBAL"
+
 ## Default name of the camera eye-position empty under the gimbal. A profile
-## may override it with `camera_marker_node`. The marker's translation is the
+## may override it with `camera.marker_node`. The marker's translation is the
 ## camera position in gimbal space; its rotation is the CAD export's camera
 ## frame, where the view direction is local -Y and up is local -Z (the node
 ## carries a ~+90 deg X rotation and a 0.001 scale). Godot cameras look down -Z
@@ -58,6 +63,11 @@ const QYG_CAMERA_RPY := Vector3(0.0, 0.091, 0.0)
 ## Basis.from_euler).
 const CAM_DIRECTION_NODE := "CAM_DIRECTION"
 const CAM_DIRECTION_TO_CAMERA_RPY := Vector3(-PI / 2.0, 0.0, 0.0)
+
+## Default name of the optional aim/muzzle marker under the gimbal. Like the
+## camera marker it is excluded from the install-pitch compensation; the
+## excluded list is derived from these two names, not configured per profile.
+const SHOT_DIRECTION_NODE := "SHOT_DIRECTION"
 
 ## Camera mount orientation policy.
 ##

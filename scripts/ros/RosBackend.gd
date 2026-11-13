@@ -529,7 +529,7 @@ func _publish_gimbal_tf(stamp = null) -> void:
 ## camera_link->camera_optical_frame (REP-103, static). map->odom is dynamic
 ## (see _publish_gimbal_tf), so it is published on every TF tick.
 ##
-## Phase 5: a URDF/SDF-backed ego (profile `robot_description`) exposes the real
+## Phase 5: a URDF/SDF-backed ego (profile `asset` description) exposes the real
 ## `camera_link` / `camera_optical_frame` nodes. Their actual relative poses are
 ## published, so the ROS TF tree is the URDF chain (whatever RPY the description
 ## authored) instead of the GLB mount + fixed optical RPY. GLB profiles keep the

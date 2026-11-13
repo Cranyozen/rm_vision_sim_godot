@@ -1,36 +1,38 @@
 # Ego model profile: full CAD vehicle (default).
 #
 # Everything the rig needs to build this robot lives here; `EgoRig` has one
-# config-driven builder and no per-model branches. See EgoModelConfig.gd for
-# the schema. Units are metres and degrees; the standard frame is Y up,
-# forward = -Z at yaw 0, origin at the chassis centre on the ground.
+# config-driven builder and no per-model branches. Schema version 2: `asset` is
+# the single model source (its extension picks the loader), `gimbal` and
+# `camera` only carry the keys that apply to that source. See
+# `scripts/sim/EgoModelConfig.gd`, `docs/EGO_MODEL_CONTRACT.md` and the Chinese
+# mirror `docs/EGO_MODEL_CONTRACT.zh_CN.md`.
+#
+# Units are metres and degrees; the standard frame is Y up, forward = -Z at
+# yaw 0, origin at the chassis centre on the ground.
 
-schema_version: 1
+schema_version: 2
 id: vehicle
 display_name: Vehicle (full CAD)
 
-scene_path: res://assets/robots/vehicle/vehicle.glb
-unit_scale: 1.0
+asset:
+  path: res://assets/robots/vehicle/vehicle.glb
+  # vehicle.glb's chassis bottom is at y = -0.2101; lift the asset so it sits
+  # on y = 0.
+  floor_offset_m: 0.2101
+  # Detached laser-detection assemblies in the source GLB: not mounted on the
+  # simulated robot, hidden at load time.
+  hide_node_prefixes:
+    - "激光检测总装"
 
-# vehicle.glb's chassis bottom is at y = -0.2101; lift the asset so it sits on
-# y = 0.
-floor_offset_m: 0.2101
+gimbal:
+  # The GIMBAL node is at the model origin; it becomes the pitch pivot.
+  pitch_node: GIMBAL
+  # The imported head is authored 25 deg nose-up. Rotate only its visual
+  # children back by -25 deg; the CAD camera/shot markers stay on the pitch
+  # node with their authored orientation.
+  install_pitch_deg: -25.0
 
-# The GIMBAL node is at the model origin; it becomes the pitch pivot.
-gimbal_node: GIMBAL
-
-# The imported head is authored 25 deg nose-up. Rotate only its visual children
-# back by -25 deg; the CAD camera/shot markers stay on the pitch node.
-gimbal_rest_pitch_deg: -25.0
-gimbal_visual_offset_m: [0.0, 0.0, 0.0]
-marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]
-
-# CAM_DIRECTION carries the eye position in gimbal space. This fallback is the
-# raw position the node contributes, used if the marker is missing.
-camera_marker_node: CAM_DIRECTION
-camera_mount_fallback_m: [-0.002017, 0.1963421255, -0.0600251630]
-
-# Detached laser-detection assemblies in the source GLB: not mounted on the
-# simulated robot, hidden at load time.
-hide_node_prefixes:
-  - "激光检测总装"
+camera:
+  # CAM_DIRECTION carries the eye position in gimbal space. mount_m is the raw
+  # position the node contributes, used only if the marker is missing.
+  mount_m: [-0.002017, 0.1963421255, -0.0600251630]

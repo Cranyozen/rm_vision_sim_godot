@@ -25,8 +25,9 @@ assets/
   assets; `ArmorPlate.gd` loads them by size (`small` / `large`). The original
   number/team variants are kept inside each module and toggled by node name.
 - **Robots** (`robots/<id>/`): one directory per robot. A robot may ship:
-  - a Godot-imported `.glb` scene used by a GLB ego profile (`scene_path`), or
-  - a URDF/SDF description + meshes used by a `robot_description` profile, or
+  - a Godot-imported `.glb` scene used by a scene ego profile (`asset.path`), or
+  - a URDF/SDF description + meshes used by a description ego profile
+    (`asset.path` ending in `.urdf`/`.xacro`/`.sdf`), or
   - both, as different profiles/scenarios (e.g. `sentry24` GLB and
     `sentry24_urdf` description).
 - **Mesh frames**: GLB scenes are authored in the Godot frame (metres, Y up,

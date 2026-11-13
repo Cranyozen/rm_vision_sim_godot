@@ -1,102 +1,119 @@
 class_name EgoModelConfig
 extends RefCounted
 
-## Ego robot model profile library.
+## Ego robot model profile library (schema version 2).
 ##
 ## Every ego robot (full vehicle, light infantry chassis, debug boxes, ...) is
 ## described by one YAML file under `config/ego/`. `EgoRig` consumes the
 ## normalized profile dictionary, so adding a robot means adding a file, not
 ## writing a new builder branch.
 ##
-## File schema (all keys optional unless noted):
+## File schema (schema_version 2):
 ##
-##   schema_version: 1                # required, must be 1
+##   schema_version: 2                # required, must be 2
 ##   id: vehicle                      # required, unique; scenario `ego.model`
 ##   display_name: Vehicle            # UI / diagnostics label
-##   scene_path: res://...glb         # required, Godot-imported scene
-##   unit_scale: 1.0                  # 0.001 for millimetre assets
-##   floor_offset_m: 0.2101           # lift so the chassis bottom sits on y = 0
-##   gimbal_node: GIMBAL              # pitch pivot node inside the scene; "" = none
-##   gimbal_yaw_node: ""              # optional separate yaw pivot (two-axis gimbal)
-##   gimbal_rest_pitch_deg: -25.0     # install pitch baked into the visual head
-##   gimbal_visual_offset_m: [0,0,0]  # translation of the compensated pivot
-##   marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]  # never compensated
-##   camera_marker_node: CAM_DIRECTION  # eye-position empty ("" = none)
-##   camera_mount_fallback_m: [0,0,0]   # eye position when the marker is absent
-##   hide_node_prefixes: [...]        # imported nodes hidden at load time
-##   synthetic_gimbal:                # optional, for chassis-only assets
-##     yaw_joint_m: [0, 0.152, 0]
-##     pitch_joint_m: [0, 0.045, 0]
-##     camera_mount_m: [0, 0.035, -0.11]
-##     parts:
-##       - name: PITCH_BODY
-##         attach: pitch              # model | yaw | pitch
-##         shape: box                 # box | cylinder
-##         size: [0.16, 0.075, 0.13]  # box
-##         radius: 0.055              # cylinder
-##         height: 0.035              # cylinder
-##         position: [0, 0.02, -0.02]
-##         rotation_deg: [0, 0, 0]
-##         color: [0.06, 0.07, 0.08, 1.0]
-##
-## Phase 5 adds two optional blocks. A profile may be backed by a URDF/SDF
-## robot description instead of an imported GLB scene (`scene_path` is then
-## optional); the rig loads the description, drives the named joints and takes
-## the camera mount from the optical frame:
-##
-##   robot_description:
-##     format: urdf                 # urdf | sdf
-##     path: res://assets/robots/phase5_gimbal/robot.urdf
-##     mesh_root: ""                # optional mesh remap root (default: path dir)
-##     yaw_joint: gimbal_yaw_joint  # revolute joint driven by EgoRig yaw
+##   asset:                           # required: the one model source
+##     path: res://...glb             # required; the extension picks the loader
+##     unit_scale: 1.0                # 0.001 for millimetre assets
+##     floor_offset_m: 0.2101         # lift so the chassis bottom sits on y = 0
+##     hide_node_prefixes: [...]      # imported nodes hidden at load time
+##     mesh_root: ""                  # urdf/sdf only: mesh remap root
+##   gimbal:                          # scene assets (.glb/.gltf/.scn/.tscn)
+##     pitch_node: GIMBAL             # pitch pivot node inside the scene
+##     yaw_node: ""                   # optional separate yaw pivot node
+##     install_pitch_deg: 0.0         # install pitch baked into the visual head
+##     visual_offset_m: [0, 0, 0]     # translation of the compensated pivot
+##     synthetic:                     # chassis-only assets with no pivot node
+##       yaw_pivot_m: [0, 0.152, 0]
+##       pitch_pivot_m: [0, 0.045, 0]
+##       parts:
+##         - name: PITCH_BODY
+##           attach: pitch            # model | yaw | pitch
+##           shape: box               # box | cylinder
+##           size: [0.16, 0.075, 0.13]   # box
+##           radius: 0.055            # cylinder
+##           height: 0.035            # cylinder
+##           position: [0, 0.02, -0.02]
+##           rotation_deg: [0, 0, 0]
+##           color: [0.06, 0.07, 0.08, 1.0]
+##   gimbal:                          # description assets (.urdf/.xacro/.sdf)
+##     yaw_joint: gimbal_yaw_joint    # revolute joint driven by EgoRig yaw
 ##     pitch_joint: gimbal_pitch_joint  # revolute joint driven by EgoRig pitch
-##     camera_link: camera_link     # optional ROS camera_link frame
-##     camera_optical_frame: camera_optical_frame  # optional REP-103 optical frame
+##   camera:
+##     marker_node: CAM_DIRECTION     # scene: eye-position empty node
+##     mount_m: [0, 0, 0]             # eye position when the marker/frames are absent
+##     link: camera_link              # description: ROS camera_link frame
+##     optical_frame: camera_optical_frame  # description: REP-103 optical frame
+##
+## The asset kind is inferred from `asset.path` (see `_infer_source`), so the
+## `gimbal`/`camera` blocks only accept the keys that apply to that kind; a key
+## for the other kind is an error, an unknown key is a warning. The normalized
+## dictionary additionally carries `source` ("scene" | "description") and only
+## the blocks/keys that apply to that source.
 ##
 ## The standard model contract: metres, Y up, forward = -Z at yaw 0, origin at
 ## the chassis centre on the ground, a gimbal pivot node (`GIMBAL`) and a
-## `CAM_DIRECTION` empty under it. Assets that do not follow it (chassis-only
-## GLBs) can declare `synthetic_gimbal` instead; the rig then builds the pivot
-## chain and the camera mount from the profile.
+## `CAM_DIRECTION` empty under it. Chassis-only GLBs declare
+## `gimbal.synthetic` instead; description-backed profiles take the joints and
+## camera frames from the URDF/SDF (docs/EGO_MODEL_CONTRACT.md, and the Chinese
+## mirror docs/EGO_MODEL_CONTRACT.zh_CN.md).
+##
+## The nodes named by `camera.marker_node` and `SimConfig.SHOT_DIRECTION_NODE`
+## are never rotated by the install-pitch compensation; that list is derived
+## here and in `EgoRig`, it is not a profile key.
 
 const MODEL_DIR := SimConfig.EGO_PROFILE_DIR
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 
-const DEFAULTS := {
-	"schema_version": SCHEMA_VERSION,
-	"id": "",
-	"display_name": "",
-	"scene_path": "",
+const TOP_LEVEL_KEYS := ["schema_version", "id", "display_name", "asset",
+	"gimbal", "camera"]
+const ASSET_KEYS := ["path", "unit_scale", "floor_offset_m",
+	"hide_node_prefixes", "mesh_root"]
+const GIMBAL_KEYS := ["pitch_node", "yaw_node", "install_pitch_deg",
+	"visual_offset_m", "synthetic", "yaw_joint", "pitch_joint"]
+const CAMERA_KEYS := ["marker_node", "mount_m", "link", "optical_frame"]
+const SYNTHETIC_KEYS := ["yaw_pivot_m", "pitch_pivot_m", "parts"]
+const PART_KEYS := ["name", "attach", "shape", "size", "radius", "height",
+	"position", "rotation_deg", "color"]
+
+const SCENE_EXTENSIONS := ["glb", "gltf", "scn", "tscn"]
+const DESCRIPTION_EXTENSIONS := ["urdf", "xacro", "sdf"]
+
+const ASSET_DEFAULTS := {
+	"path": "",
 	"unit_scale": 1.0,
 	"floor_offset_m": 0.0,
-	"gimbal_node": "GIMBAL",
-	"gimbal_yaw_node": "",
-	"gimbal_rest_pitch_deg": 0.0,
-	"gimbal_visual_offset_m": [0.0, 0.0, 0.0],
-	"marker_nodes": ["CAM_DIRECTION", "SHOT_DIRECTION"],
-	"camera_marker_node": SimConfig.CAM_DIRECTION_NODE,
-	"camera_mount_fallback_m": [0.0, 0.0, 0.0],
 	"hide_node_prefixes": [],
-	"synthetic_gimbal": {},
-	"robot_description": {},
 }
 
-const ROBOT_DESCRIPTION_DEFAULTS := {
-	"format": "",
-	"path": "",
-	"mesh_root": "",
+const SCENE_GIMBAL_DEFAULTS := {
+	"pitch_node": SimConfig.GIMBAL_NODE,
+	"yaw_node": "",
+	"install_pitch_deg": 0.0,
+	"visual_offset_m": [0.0, 0.0, 0.0],
+	"synthetic": {},
+}
+
+const DESCRIPTION_GIMBAL_DEFAULTS := {
 	"yaw_joint": "",
 	"pitch_joint": "",
-	"camera_link": "",
-	"camera_optical_frame": "",
 }
 
-const ROBOT_DESCRIPTION_FORMATS := ["urdf", "sdf"]
+const SCENE_CAMERA_DEFAULTS := {
+	"marker_node": SimConfig.CAM_DIRECTION_NODE,
+	"mount_m": [0.0, 0.0, 0.0],
+}
+
+const DESCRIPTION_CAMERA_DEFAULTS := {
+	"link": "",
+	"optical_frame": "",
+	"mount_m": [0.0, 0.0, 0.0],
+}
 
 const SYNTHETIC_DEFAULTS := {
-	"yaw_joint_m": [0.0, 0.0, 0.0],
-	"pitch_joint_m": [0.0, 0.0, 0.0],
-	"camera_mount_m": [0.0, 0.0, 0.0],
+	"yaw_pivot_m": [0.0, 0.0, 0.0],
+	"pitch_pivot_m": [0.0, 0.0, 0.0],
 	"parts": [],
 }
 
@@ -204,53 +221,174 @@ static func default_model_id() -> String:
 ## Normalize a parsed profile dictionary to the documented schema.
 static func normalize(data: Variant, path: String,
 		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
-	var out := DEFAULTS.duplicate(true)
+	var out := {
+		"schema_version": SCHEMA_VERSION,
+		"id": "",
+		"display_name": "",
+		"source": "",
+		"asset": ASSET_DEFAULTS.duplicate(true),
+		"gimbal": {},
+		"camera": {},
+	}
 	if typeof(data) != TYPE_DICTIONARY:
 		errors.append("%s: profile root must be a mapping" % path)
 		return out
 	var src: Dictionary = data
 
-	var version := int(_float(src.get("schema_version"), SCHEMA_VERSION))
+	var version := int(_float(src.get("schema_version"), 0))
 	out["schema_version"] = version
 	if version != SCHEMA_VERSION:
 		errors.append("%s: unsupported schema_version %d (expected %d)"
 			% [path, version, SCHEMA_VERSION])
 
 	out["id"] = _string(src.get("id"), "")
-	if out["id"].is_empty():
+	if String(out["id"]).is_empty():
 		errors.append("%s: missing required key 'id'" % path)
 	out["display_name"] = _string(src.get("display_name"), String(out["id"]))
-	out["scene_path"] = _string(src.get("scene_path"), "")
-	out["robot_description"] = _normalize_robot_description(
-		src.get("robot_description"), path, errors, warnings)
-	var description_path := String(out["robot_description"]["path"])
-	if out["scene_path"].is_empty() and description_path.is_empty():
-		errors.append("%s: missing required key 'scene_path' (or robot_description.path)"
-			% path)
-	elif not out["scene_path"].is_empty() and not FileAccess.file_exists(out["scene_path"]):
-		errors.append("%s: scene_path not found: %s" % [path, out["scene_path"]])
 
+	var asset := _normalize_asset(src.get("asset"), path, errors, warnings)
+	out["asset"] = asset
+	var source := String(asset.get("source", ""))
+	out["source"] = source
+	if not source.is_empty():
+		out["gimbal"] = _normalize_gimbal(src.get("gimbal"), source, path,
+			errors, warnings)
+		out["camera"] = _normalize_camera(src.get("camera"), source, path,
+			errors, warnings)
+
+	_unknown_keys(src, TOP_LEVEL_KEYS, path, warnings)
+	return out
+
+
+## Asset kind from the path extension: "scene" for Godot-imported scenes,
+## "description" for URDF/xacro/SDF, "" when the extension is not supported.
+static func _infer_source(asset_path: String) -> String:
+	var extension := asset_path.get_extension().to_lower()
+	if extension in SCENE_EXTENSIONS:
+		return "scene"
+	if extension in DESCRIPTION_EXTENSIONS:
+		return "description"
+	return ""
+
+
+static func _description_format(asset_path: String) -> String:
+	var extension := asset_path.get_extension().to_lower()
+	return "urdf" if extension == "xacro" else extension
+
+
+static func _normalize_asset(value: Variant, path: String,
+		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
+	var out := ASSET_DEFAULTS.duplicate(true)
+	if value == null:
+		errors.append("%s: missing required block 'asset'" % path)
+		return out
+	if typeof(value) != TYPE_DICTIONARY:
+		errors.append("%s: asset must be a mapping" % path)
+		return out
+	var src: Dictionary = value
+	var asset_path := _string(src.get("path"), "")
+	if asset_path.is_empty():
+		errors.append("%s: asset.path is required" % path)
+		_unknown_keys(src, ASSET_KEYS, path, warnings)
+		return out
+	var source := _infer_source(asset_path)
+	if source.is_empty():
+		errors.append("%s: cannot infer the asset kind from '%s' (expected %s or %s)"
+			% [path, asset_path, ", ".join(SCENE_EXTENSIONS),
+			", ".join(DESCRIPTION_EXTENSIONS)])
+		_unknown_keys(src, ASSET_KEYS, path, warnings)
+		return out
+	out["source"] = source
+	out["path"] = asset_path
+	if not FileAccess.file_exists(asset_path):
+		errors.append("%s: asset.path not found: %s" % [path, asset_path])
 	out["unit_scale"] = _float(src.get("unit_scale"), 1.0)
-	if out["unit_scale"] <= 0.0:
-		errors.append("%s: unit_scale must be > 0" % path)
+	if float(out["unit_scale"]) <= 0.0:
+		errors.append("%s: asset.unit_scale must be > 0" % path)
 		out["unit_scale"] = 1.0
 	out["floor_offset_m"] = _float(src.get("floor_offset_m"), 0.0)
-	out["gimbal_node"] = _string(src.get("gimbal_node"), "GIMBAL")
-	out["gimbal_yaw_node"] = _string(src.get("gimbal_yaw_node"), "")
-	out["gimbal_rest_pitch_deg"] = _float(src.get("gimbal_rest_pitch_deg"), 0.0)
-	out["gimbal_visual_offset_m"] = _vec3(src.get("gimbal_visual_offset_m"), [0.0, 0.0, 0.0])
-	out["marker_nodes"] = _string_array(src.get("marker_nodes"),
-		["CAM_DIRECTION", "SHOT_DIRECTION"])
-	out["camera_marker_node"] = _string(src.get("camera_marker_node"),
-		SimConfig.CAM_DIRECTION_NODE)
-	out["camera_mount_fallback_m"] = _vec3(src.get("camera_mount_fallback_m"),
-		[0.0, 0.0, 0.0])
 	out["hide_node_prefixes"] = _string_array(src.get("hide_node_prefixes"), [])
-	out["synthetic_gimbal"] = _normalize_synthetic(src.get("synthetic_gimbal"), path,
-		errors, warnings)
-
-	_unknown_keys(src, DEFAULTS.keys(), path, warnings)
+	if source == "description":
+		out["format"] = _description_format(asset_path)
+		out["mesh_root"] = _string(src.get("mesh_root"), "")
+		if not String(out["mesh_root"]).is_empty() \
+				and not DirAccess.dir_exists_absolute(String(out["mesh_root"])):
+			errors.append("%s: asset.mesh_root not found: %s"
+				% [path, out["mesh_root"]])
+	elif src.has("mesh_root"):
+		errors.append("%s: asset.mesh_root is only valid for urdf/sdf assets"
+			% path)
+	_unknown_keys(src, ASSET_KEYS, path, warnings)
 	return out
+
+
+static func _normalize_gimbal(value: Variant, source: String, path: String,
+		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
+	var src: Dictionary = {}
+	if value != null:
+		if typeof(value) != TYPE_DICTIONARY:
+			errors.append("%s: gimbal must be a mapping" % path)
+		else:
+			src = value
+
+	if source == "description":
+		var out := DESCRIPTION_GIMBAL_DEFAULTS.duplicate(true)
+		out["yaw_joint"] = _string(src.get("yaw_joint"), "")
+		out["pitch_joint"] = _string(src.get("pitch_joint"), "")
+		if String(out["yaw_joint"]).is_empty():
+			errors.append("%s: gimbal.yaw_joint is required for urdf/sdf assets"
+				% path)
+		if String(out["pitch_joint"]).is_empty():
+			errors.append("%s: gimbal.pitch_joint is required for urdf/sdf assets"
+				% path)
+		_reject_keys(src, SCENE_GIMBAL_DEFAULTS.keys(), "gimbal", path, errors,
+			"urdf/sdf")
+		_unknown_keys(src, GIMBAL_KEYS, path, warnings)
+		return out
+
+	var scene_out := SCENE_GIMBAL_DEFAULTS.duplicate(true)
+	scene_out["pitch_node"] = _string(src.get("pitch_node"), SimConfig.GIMBAL_NODE)
+	scene_out["yaw_node"] = _string(src.get("yaw_node"), "")
+	scene_out["install_pitch_deg"] = _float(src.get("install_pitch_deg"), 0.0)
+	scene_out["visual_offset_m"] = _vec3(src.get("visual_offset_m"),
+		[0.0, 0.0, 0.0])
+	scene_out["synthetic"] = _normalize_synthetic(src.get("synthetic"), path,
+		errors, warnings)
+	_reject_keys(src, DESCRIPTION_GIMBAL_DEFAULTS.keys(), "gimbal", path, errors,
+		"scene")
+	_unknown_keys(src, GIMBAL_KEYS, path, warnings)
+	if String(scene_out["pitch_node"]).is_empty() \
+			and (scene_out["synthetic"] as Dictionary).is_empty():
+		errors.append("%s: scene profiles need gimbal.pitch_node or gimbal.synthetic"
+			% path)
+	return scene_out
+
+
+static func _normalize_camera(value: Variant, source: String, path: String,
+		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
+	var src: Dictionary = {}
+	if value != null:
+		if typeof(value) != TYPE_DICTIONARY:
+			errors.append("%s: camera must be a mapping" % path)
+		else:
+			src = value
+
+	if source == "description":
+		var out := DESCRIPTION_CAMERA_DEFAULTS.duplicate(true)
+		out["link"] = _string(src.get("link"), "")
+		out["optical_frame"] = _string(src.get("optical_frame"), "")
+		out["mount_m"] = _vec3(src.get("mount_m"), [0.0, 0.0, 0.0])
+		_reject_keys(src, ["marker_node"], "camera", path, errors, "urdf/sdf")
+		_unknown_keys(src, CAMERA_KEYS, path, warnings)
+		return out
+
+	var scene_out := SCENE_CAMERA_DEFAULTS.duplicate(true)
+	scene_out["marker_node"] = _string(src.get("marker_node"),
+		SimConfig.CAM_DIRECTION_NODE)
+	scene_out["mount_m"] = _vec3(src.get("mount_m"), [0.0, 0.0, 0.0])
+	_reject_keys(src, ["link", "optical_frame"], "camera", path, errors, "scene")
+	_unknown_keys(src, CAMERA_KEYS, path, warnings)
+	return scene_out
 
 
 static func _normalize_synthetic(value: Variant, path: String,
@@ -258,30 +396,29 @@ static func _normalize_synthetic(value: Variant, path: String,
 	if value == null:
 		return {}
 	if typeof(value) != TYPE_DICTIONARY:
-		errors.append("%s: synthetic_gimbal must be a mapping" % path)
+		errors.append("%s: gimbal.synthetic must be a mapping" % path)
 		return {}
 	var src: Dictionary = value
 	var out := SYNTHETIC_DEFAULTS.duplicate(true)
-	out["yaw_joint_m"] = _vec3(src.get("yaw_joint_m"), [0.0, 0.0, 0.0])
-	out["pitch_joint_m"] = _vec3(src.get("pitch_joint_m"), [0.0, 0.0, 0.0])
-	out["camera_mount_m"] = _vec3(src.get("camera_mount_m"), [0.0, 0.0, 0.0])
+	out["yaw_pivot_m"] = _vec3(src.get("yaw_pivot_m"), [0.0, 0.0, 0.0])
+	out["pitch_pivot_m"] = _vec3(src.get("pitch_pivot_m"), [0.0, 0.0, 0.0])
 	var parts: Array = []
 	var raw_parts: Variant = src.get("parts", [])
 	if typeof(raw_parts) != TYPE_ARRAY:
-		errors.append("%s: synthetic_gimbal.parts must be a list" % path)
+		errors.append("%s: gimbal.synthetic.parts must be a list" % path)
 	else:
 		for i in (raw_parts as Array).size():
 			var raw: Variant = (raw_parts as Array)[i]
 			if typeof(raw) != TYPE_DICTIONARY:
-				errors.append("%s: synthetic_gimbal.parts[%d] must be a mapping"
+				errors.append("%s: gimbal.synthetic.parts[%d] must be a mapping"
 					% [path, i])
 				continue
 			parts.append(_normalize_part(raw as Dictionary, "%s: parts[%d]"
 				% [path, i], errors, warnings))
 	out["parts"] = parts
 	if out["parts"].is_empty():
-		warnings.append("%s: synthetic_gimbal has no parts" % path)
-	_unknown_keys(src, SYNTHETIC_DEFAULTS.keys(), path, warnings)
+		warnings.append("%s: gimbal.synthetic has no parts" % path)
+	_unknown_keys(src, SYNTHETIC_KEYS, path, warnings)
 	return out
 
 
@@ -303,59 +440,8 @@ static func _normalize_part(src: Dictionary, path: String,
 	out["position"] = _vec3(src.get("position"), [0.0, 0.0, 0.0])
 	out["rotation_deg"] = _vec3(src.get("rotation_deg"), [0.0, 0.0, 0.0])
 	out["color"] = _vec4(src.get("color"), [0.08, 0.09, 0.10, 1.0])
-	_unknown_keys(src, PART_DEFAULTS.keys(), path, warnings)
+	_unknown_keys(src, PART_KEYS, path, warnings)
 	return out
-
-
-static func _normalize_robot_description(value: Variant, path: String,
-		errors: PackedStringArray, warnings: PackedStringArray) -> Dictionary:
-	var out := ROBOT_DESCRIPTION_DEFAULTS.duplicate(true)
-	if value == null:
-		return out
-	if typeof(value) != TYPE_DICTIONARY:
-		errors.append("%s: robot_description must be a mapping" % path)
-		return out
-	var src: Dictionary = value
-	out["format"] = _string(src.get("format"), "").to_lower()
-	out["path"] = _string(src.get("path"), "")
-	out["mesh_root"] = _string(src.get("mesh_root"), "")
-	out["yaw_joint"] = _string(src.get("yaw_joint"), "")
-	out["pitch_joint"] = _string(src.get("pitch_joint"), "")
-	out["camera_link"] = _string(src.get("camera_link"), "")
-	out["camera_optical_frame"] = _string(src.get("camera_optical_frame"), "")
-	if out["path"].is_empty():
-		errors.append("%s: robot_description.path is required when the block is present"
-			% path)
-	else:
-		if out["format"].is_empty():
-			out["format"] = _infer_description_format(out["path"])
-		if not out["format"] in ROBOT_DESCRIPTION_FORMATS:
-			errors.append("%s: robot_description.format must be urdf | sdf (got '%s')"
-				% [path, out["format"]])
-			out["format"] = ""
-		if not FileAccess.file_exists(out["path"]):
-			errors.append("%s: robot_description.path not found: %s"
-				% [path, out["path"]])
-		if not out["mesh_root"].is_empty() and not DirAccess.dir_exists_absolute(
-				out["mesh_root"]):
-			errors.append("%s: robot_description.mesh_root not found: %s"
-				% [path, out["mesh_root"]])
-		if out["yaw_joint"].is_empty():
-			errors.append("%s: robot_description.yaw_joint is required" % path)
-		if out["pitch_joint"].is_empty():
-			errors.append("%s: robot_description.pitch_joint is required" % path)
-	_unknown_keys(src, ROBOT_DESCRIPTION_DEFAULTS.keys(), path, warnings)
-	return out
-
-
-## Description format when the profile omits it: use the file extension.
-static func _infer_description_format(description_path: String) -> String:
-	var extension := description_path.get_extension().to_lower()
-	if extension == "xacro":
-		return "urdf"
-	if extension in ROBOT_DESCRIPTION_FORMATS:
-		return extension
-	return ""
 
 
 # --- parsing helpers --------------------------------------------------------
@@ -430,6 +516,14 @@ static func _string_array(value: Variant, fallback: Array) -> Array:
 		if not text.is_empty() and not out.has(text):
 			out.append(text)
 	return out
+
+
+static func _reject_keys(src: Dictionary, keys: Array, block: String, path: String,
+		errors: PackedStringArray, expected: String) -> void:
+	for key in keys:
+		if src.has(key):
+			errors.append("%s: %s.%s is not valid for %s assets"
+				% [path, block, str(key), expected])
 
 
 static func _unknown_keys(src: Dictionary, known: Array, path: String,

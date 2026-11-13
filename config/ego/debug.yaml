@@ -2,18 +2,13 @@
 #
 # Tiny box robot (`tools/make_debug_robot.py`) for camera / feed / ROS
 # debugging. It already follows the standard frame (authored level on the
-# ground), so no floor offset or install-pitch compensation is needed.
+# ground) and ships GIMBAL / CAM_DIRECTION / SHOT_DIRECTION, so the defaults
+# cover everything: no scale, floor offset, install-pitch compensation or
+# camera override is needed (schema version 2, see docs/EGO_MODEL_CONTRACT.md).
 
-schema_version: 1
+schema_version: 2
 id: debug
 display_name: Debug box robot
 
-scene_path: res://assets/robots/debug/debug_robot.glb
-unit_scale: 1.0
-floor_offset_m: 0.0
-
-gimbal_node: GIMBAL
-gimbal_rest_pitch_deg: 0.0
-marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]
-camera_marker_node: CAM_DIRECTION
-hide_node_prefixes: []
+asset:
+  path: res://assets/robots/debug/debug_robot.glb

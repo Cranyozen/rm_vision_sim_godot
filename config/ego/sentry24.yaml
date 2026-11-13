@@ -15,28 +15,26 @@
 #
 # The asset is authored to the contract (metres, +Y up, -Z forward, origin at
 # the chassis centre on the ground, eye level), so no scale/offset/install-pitch
-# compensation is needed.
+# compensation is needed. The GIMBAL_YAW node wraps the yaw platform for the
+# two-axis gimbal (schema version 2, see docs/EGO_MODEL_CONTRACT.md).
 
-schema_version: 1
+schema_version: 2
 id: sentry24
 display_name: Sentry 24 (simplified CAD)
 
-scene_path: res://assets/robots/sentry24/24sentry_simplified.glb
-unit_scale: 1.0
-floor_offset_m: 0.0
+asset:
+  path: res://assets/robots/sentry24/24sentry_simplified.glb
 
-# Two joints, two axes: the big-yaw bearing (vertical) and the small-gimbal
-# pitch bearing (horizontal, offset from the yaw axis).  `GIMBAL_YAW` holds the
-# yaw platform (hopper, dial, yaw hardware) and `GIMBAL` the pitching launcher
-# head, so the rig yaws and pitches about the real axes instead of collapsing
-# both into one pivot.
-gimbal_yaw_node: GIMBAL_YAW
-gimbal_node: GIMBAL
-gimbal_rest_pitch_deg: 0.0
-gimbal_visual_offset_m: [0.0, 0.0, 0.0]
-marker_nodes: [CAM_DIRECTION, SHOT_DIRECTION]
-camera_marker_node: CAM_DIRECTION
+gimbal:
+  # Two joints, two axes: the big-yaw bearing (vertical) and the small-gimbal
+  # pitch bearing (horizontal, offset from the yaw axis).  `GIMBAL_YAW` holds
+  # the yaw platform (hopper, dial, yaw hardware) and `GIMBAL` the pitching
+  # launcher head, so the rig yaws and pitches about the real axes instead of
+  # collapsing both into one pivot.
+  yaw_node: GIMBAL_YAW
+  pitch_node: GIMBAL
 
-# Eye position in gimbal space (same value as the asset's CAM_DIRECTION node);
-# used only if the marker is missing.
-camera_mount_fallback_m: [-0.033585, 0.018609, -0.191025]
+camera:
+  # Eye position in gimbal space (same value as the asset's CAM_DIRECTION node);
+  # used only if the marker is missing.
+  mount_m: [-0.033585, 0.018609, -0.191025]

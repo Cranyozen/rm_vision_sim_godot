@@ -14,24 +14,22 @@
 #
 # Chain: base_link -> (4 wheels) and base_link -> gimbal_yaw_link ->
 # gimbal_pitch_link -> camera_link -> camera_optical_frame.
+#
+# Schema version 2: the description is just another `asset` (the `.urdf`
+# extension picks the loader), joints live under `gimbal`, camera frames under
+# `camera` (docs/EGO_MODEL_CONTRACT.md).
 
-schema_version: 1
+schema_version: 2
 id: sentry24_urdf
 display_name: Sentry 24 (URDF)
 
-scene_path: ""
-unit_scale: 1.0
-floor_offset_m: 0.0
-
-# No authored GLB nodes: the description owns the joints.
-gimbal_node: ""
-gimbal_yaw_node: ""
-
-robot_description:
-  format: urdf
+asset:
   path: res://assets/robots/sentry24/robot.urdf
+
+gimbal:
   yaw_joint: gimbal_yaw_joint
   pitch_joint: gimbal_pitch_joint
-  camera_link: camera_link
-  camera_optical_frame: camera_optical_frame
 
+camera:
+  link: camera_link
+  optical_frame: camera_optical_frame

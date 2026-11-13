@@ -4,25 +4,25 @@ extends Node3D
 ## Own robot rig: chassis/vehicle mesh + a gimbal pivot chain that the Phase 2
 ## ROS backend drives with GimbalCmd (degrees, pitch up positive).
 ##
-## Every ego robot is described by a profile (`config/ego/*.yaml`, see
-## `EgoModelConfig`); this script has one config-driven builder, so adding a
-## robot does not add a code branch. The standard model contract is:
+## Every ego robot is described by a profile (`config/ego/*.yaml`, schema
+## version 2, see `EgoModelConfig`); this script has one config-driven builder,
+## so adding a robot does not add a code branch. The standard model contract is:
 ## metres, Y up, forward = -Z at yaw 0, origin at the chassis centre on the
 ## ground, a gimbal pivot node (`GIMBAL`) and a camera marker
 ## (`CAM_DIRECTION`) under it. Assets that break the contract (chassis-only
-## GLBs) declare `synthetic_gimbal` and the rig builds the pivot chain from the
+## GLBs) declare `gimbal.synthetic` and the rig builds the pivot chain from the
 ## profile instead.
 ##
 ## EgoRoot (this node, chassis yaw)
 ##   └─ VehicleModel / chassis visual
-##   └─ GimbalYaw (world Y)         ← yaw pivot: profile `gimbal_yaw_node`
-##        └─ GimbalPitch (local X)  ← pitch pivot: profile `gimbal_node`
+##   └─ GimbalYaw (world Y)         ← yaw pivot: profile `gimbal.yaw_node`
+##        └─ GimbalPitch (local X)  ← pitch pivot: profile `gimbal.pitch_node`
 ##             ├─ GimbalVisual     ← meshes only; install-pitch compensation
-##             │                       (profile `gimbal_rest_pitch_deg`)
+##             │                       (profile `gimbal.install_pitch_deg`)
 ##             ├─ CAM_DIRECTION / SHOT_DIRECTION (markers, not compensated)
-##             └─ CameraMount      ← marker pose, or the profile's mount
+##             └─ CameraMount      ← marker pose, or `camera.mount_m`
 ##
-## One-axis assets (no `gimbal_yaw_node`): the `gimbal_node` translation is both
+## One-axis assets (no `gimbal.yaw_node`): the pitch node translation is both
 ## pivots and the head pitches around it.  Two-axis assets author a separate
 ## yaw joint; its translation is the yaw pivot and the pitch node keeps its
 ## authored offset from it, so yaw and pitch rotate about their real axes.
@@ -89,7 +89,8 @@ func _build() -> void:
 	# Search the whole rig: the gimbal subtree is re-parented out of the model
 	# during the build, so a VehicleModel-only walk would miss it.
 	if not profile.is_empty():
-		_hide_nodes(self, profile.get("hide_node_prefixes", []))
+		_hide_nodes(self, (profile.get("asset", {}) as Dictionary).get(
+			"hide_node_prefixes", []))
 	if _gimbal_yaw == null or _gimbal_pitch == null or _camera_mount == null:
 		push_warning("EgoRig: profile '%s' incomplete, building fallback rig" % preset)
 		_build_fallback()
@@ -97,19 +98,25 @@ func _build() -> void:
 	_set_layers(self, 2)
 
 
-## Build the rig from the normalized profile dictionary.
+## Build the rig from the normalized profile dictionary (schema version 2).
+## `source` is "scene" (imported Godot scene) or "description" (URDF/SDF); the
+## normalizer has already rejected keys that do not apply to that source.
 func _build_from_profile() -> void:
-	_camera_marker_node = String(profile.get("camera_marker_node",
-		SimConfig.CAM_DIRECTION_NODE))
-	_marker_nodes = Array(profile.get("marker_nodes", []))
-	camera_mount_offset = _vec3(profile.get("camera_mount_fallback_m", []))
-
-	var description: Dictionary = profile.get("robot_description", {})
-	if not String(description.get("path", "")).is_empty():
-		_build_from_robot_description(description)
+	var asset: Dictionary = profile.get("asset", {})
+	var gimbal_cfg: Dictionary = profile.get("gimbal", {})
+	var camera: Dictionary = profile.get("camera", {})
+	# Fallback eye position, used when the scene has no camera marker / the
+	# description has no camera frames.
+	camera_mount_offset = _vec3(camera.get("mount_m", []))
+	if String(profile.get("source", "")) == "description":
+		_build_from_robot_description(asset, gimbal_cfg, camera)
 		return
 
-	var scene_path := String(profile.get("scene_path", ""))
+	_camera_marker_node = String(camera.get("marker_node",
+		SimConfig.CAM_DIRECTION_NODE))
+	_marker_nodes = _uncompensated_nodes(_camera_marker_node)
+
+	var scene_path := String(asset.get("path", ""))
 	var packed := load(scene_path) as PackedScene
 	if packed == null:
 		push_error("EgoRig: cannot load ego model scene '%s'" % scene_path)
@@ -119,30 +126,44 @@ func _build_from_profile() -> void:
 		push_error("EgoRig: ego model scene root is not Node3D: %s" % scene_path)
 		return
 	model.name = "VehicleModel"
-	var floor_offset := float(profile.get("floor_offset_m", 0.0))
-	var scale := float(profile.get("unit_scale", 1.0))
+	var floor_offset := float(asset.get("floor_offset_m", 0.0))
+	var scale := float(asset.get("unit_scale", 1.0))
 	if not is_equal_approx(scale, 1.0):
 		model.scale = Vector3.ONE * scale
 	model.position = Vector3(0.0, floor_offset, 0.0)
 	_model_root = model
 	add_child(model)
 
-	var gimbal_node_name := String(profile.get("gimbal_node", "GIMBAL"))
+	var gimbal_node_name := String(gimbal_cfg.get("pitch_node",
+		SimConfig.GIMBAL_NODE))
 	var gimbal: Node3D = null
 	if not gimbal_node_name.is_empty():
 		gimbal = model.find_child(gimbal_node_name, true, false) as Node3D
-	var yaw_node_name := String(profile.get("gimbal_yaw_node", ""))
+	var yaw_node_name := String(gimbal_cfg.get("yaw_node", ""))
 	var yaw_joint: Node3D = null
 	if not yaw_node_name.is_empty():
 		yaw_joint = model.find_child(yaw_node_name, true, false) as Node3D
 
 	if gimbal != null:
-		_build_gimbal_from_model(gimbal, yaw_joint, floor_offset)
-	elif not (profile.get("synthetic_gimbal", {}) as Dictionary).is_empty():
-		_build_synthetic_gimbal(profile["synthetic_gimbal"])
+		_build_gimbal_from_model(gimbal, yaw_joint, floor_offset, gimbal_cfg)
+	elif not (gimbal_cfg.get("synthetic", {}) as Dictionary).is_empty():
+		_build_synthetic_gimbal(gimbal_cfg["synthetic"], camera)
 	else:
-		push_error("EgoRig: profile '%s' has no gimbal node '%s' and no synthetic_gimbal"
+		push_error("EgoRig: profile '%s' has no gimbal node '%s' and no gimbal.synthetic"
 			% [preset, gimbal_node_name])
+
+
+## Nodes that must stay directly on the pitch joint and are therefore never
+## rotated by the install-pitch compensation: the camera marker and the shot
+## marker. Derived from the profile/constants; not a profile key.
+static func _uncompensated_nodes(marker_node: String) -> Array:
+	var nodes: Array = []
+	if not marker_node.is_empty():
+		nodes.append(marker_node)
+	if not SimConfig.SHOT_DIRECTION_NODE.is_empty() \
+			and not nodes.has(SimConfig.SHOT_DIRECTION_NODE):
+		nodes.append(SimConfig.SHOT_DIRECTION_NODE)
+	return nodes
 
 
 ## Phase 5: build the ego from a URDF/SDF robot description.
@@ -152,9 +173,10 @@ func _build_from_profile() -> void:
 ## the body lateral axis) and the camera frames. The camera mount is derived
 ## from the description's optical frame, so the feed, the FPV and the published
 ## ROS camera chain all come from the same URDF/SDF transform.
-func _build_from_robot_description(description: Dictionary) -> void:
-	var path := String(description.get("path", ""))
-	var format := String(description.get("format", ""))
+func _build_from_robot_description(asset: Dictionary, gimbal_cfg: Dictionary,
+		camera: Dictionary) -> void:
+	var path := String(asset.get("path", ""))
+	var format := String(asset.get("format", ""))
 	_robot_description = SdfLoader.load_file(path) if format == "sdf" \
 		else UrdfLoader.load_file(path)
 	var desc := _robot_description
@@ -170,8 +192,8 @@ func _build_from_robot_description(description: Dictionary) -> void:
 		_build_fallback()
 		return
 
-	_yaw_joint_name = String(description.get("yaw_joint", ""))
-	_pitch_joint_name = String(description.get("pitch_joint", ""))
+	_yaw_joint_name = String(gimbal_cfg.get("yaw_joint", ""))
+	_pitch_joint_name = String(gimbal_cfg.get("pitch_joint", ""))
 	if not desc.has_joint(_yaw_joint_name) or not desc.has_joint(_pitch_joint_name):
 		push_error("EgoRig: profile '%s' maps unknown joints (yaw='%s', pitch='%s')"
 			% [preset, _yaw_joint_name, _pitch_joint_name])
@@ -179,15 +201,15 @@ func _build_from_robot_description(description: Dictionary) -> void:
 		return
 
 	var options := {
-		"unit_scale": float(profile.get("unit_scale", 1.0)),
+		"unit_scale": float(asset.get("unit_scale", 1.0)),
 		"layers": 2,
 	}
-	var mesh_root := String(description.get("mesh_root", ""))
+	var mesh_root := String(asset.get("mesh_root", ""))
 	if not mesh_root.is_empty():
 		options["mesh_root"] = mesh_root
 	_robot_rig = RobotRig.build(desc, options)
 	_robot_rig.name = "RobotDescription"
-	_robot_rig.position = Vector3(0.0, float(profile.get("floor_offset_m", 0.0)), 0.0)
+	_robot_rig.position = Vector3(0.0, float(asset.get("floor_offset_m", 0.0)), 0.0)
 	_model_root = _robot_rig
 	add_child(_robot_rig)
 
@@ -216,9 +238,9 @@ func _build_from_robot_description(description: Dictionary) -> void:
 	# models the real axes, so the visual pivot is the pitch joint itself.
 	_gimbal_visual = null
 	_camera_link_node = _robot_rig.get_link_node(
-		String(description.get("camera_link", "")))
+		String(camera.get("link", "")))
 	_camera_optical_node = _robot_rig.get_link_node(
-		String(description.get("camera_optical_frame", "")))
+		String(camera.get("optical_frame", "")))
 	if _camera_optical_node == null and _camera_link_node == null:
 		push_warning("EgoRig: description '%s' has no camera_link/optical frame; using the profile camera mount fallback"
 			% path)
@@ -283,16 +305,16 @@ static func _relative_transform(ancestor: Node3D, node: Node3D) -> Transform3D:
 ## the yaw pivot, so both joints share that point (vehicle.glb authors GIMBAL at
 ## the model origin, lifted by the floor offset).
 ##
-## Two-axis assets: `yaw_joint` is the authored yaw node and must contain the
-## pitch node. Its translation becomes the yaw pivot (rotation about world Y),
-## and the pitch node keeps its authored offset from it, so the pitch axis sits
-## where the CAD pitches (e.g. the launcher head of the 24-sentry).
+## Two-axis assets: `gimbal.yaw_node` is the authored yaw node and must contain
+## the pitch node. Its translation becomes the yaw pivot (rotation about world
+## Y), and the pitch node keeps its authored offset from it, so the pitch axis
+## sits where the CAD pitches (e.g. the launcher head of the 24-sentry).
 func _build_gimbal_from_model(gimbal: Node3D, yaw_joint: Node3D,
-		floor_offset: float) -> void:
+		floor_offset: float, gimbal_cfg: Dictionary) -> void:
 	var two_axis := yaw_joint != null and yaw_joint != gimbal \
 		and yaw_joint.is_ancestor_of(gimbal)
 	if yaw_joint != null and not two_axis:
-		push_warning("EgoRig: gimbal_yaw_node '%s' does not contain gimbal node '%s'; using the single-pivot joint"
+		push_warning("EgoRig: gimbal.yaw_node '%s' does not contain pitch node '%s'; using the single-pivot joint"
 			% [yaw_joint.name, gimbal.name])
 	var pivot := Vector3.ZERO
 	if two_axis:
@@ -320,8 +342,8 @@ func _build_gimbal_from_model(gimbal: Node3D, yaw_joint: Node3D,
 		gimbal.position = Vector3.ZERO
 		gimbal.rotation = Vector3.ZERO
 	_gimbal_pitch = gimbal
-	_build_gimbal_visual(gimbal, float(profile.get("gimbal_rest_pitch_deg", 0.0)),
-		_vec3(profile.get("gimbal_visual_offset_m", [])))
+	_build_gimbal_visual(gimbal, float(gimbal_cfg.get("install_pitch_deg", 0.0)),
+		_vec3(gimbal_cfg.get("visual_offset_m", [])))
 
 	_camera_mount = Node3D.new()
 	_camera_mount.name = "CameraMount"
@@ -329,23 +351,24 @@ func _build_gimbal_from_model(gimbal: Node3D, yaw_joint: Node3D,
 	gimbal.add_child(_camera_mount)
 
 
-## Build the yaw/pitch chain and its meshes from `synthetic_gimbal` (used by
-## chassis-only assets). Positions are in rig space, above the ground plane.
-func _build_synthetic_gimbal(synthetic: Dictionary) -> void:
+## Build the yaw/pitch chain and its meshes from `gimbal.synthetic` (used by
+## chassis-only assets). Positions are in rig space, above the ground plane;
+## the fixed camera mount comes from `camera.mount_m`.
+func _build_synthetic_gimbal(synthetic: Dictionary, camera: Dictionary) -> void:
 	_gimbal_yaw = Node3D.new()
 	_gimbal_yaw.name = "GimbalYaw"
-	_gimbal_yaw.position = _vec3(synthetic.get("yaw_joint_m", []))
+	_gimbal_yaw.position = _vec3(synthetic.get("yaw_pivot_m", []))
 	add_child(_gimbal_yaw)
 
 	_gimbal_pitch = Node3D.new()
 	_gimbal_pitch.name = "GimbalPitch"
-	_gimbal_pitch.position = _vec3(synthetic.get("pitch_joint_m", []))
+	_gimbal_pitch.position = _vec3(synthetic.get("pitch_pivot_m", []))
 	_gimbal_yaw.add_child(_gimbal_pitch)
 
 	for part in synthetic.get("parts", []):
 		_add_profile_part(part)
 
-	var mount_position := _vec3(synthetic.get("camera_mount_m", []))
+	var mount_position := _vec3(camera.get("mount_m", []))
 	_fixed_camera_mount = Transform3D(Basis.IDENTITY, mount_position)
 	_has_fixed_camera_mount = true
 	_camera_mount = Node3D.new()

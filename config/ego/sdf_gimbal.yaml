@@ -3,26 +3,22 @@
 # Same kinematic chain as `robot.urdf` but authored as SDF 1.7 (link poses are
 # relative to the model frame, joint poses relative to the child link). Used to
 # prove that both loaders feed the same `RobotRig` path and the same camera/TF
-# chain.
+# chain. The `.sdf` extension picks `SdfLoader` (schema version 2, see
+# docs/EGO_MODEL_CONTRACT.md).
 #
 # Run: godot --path . -- --scenario=res://scenarios/phase5_sdf.yaml
 
-schema_version: 1
+schema_version: 2
 id: sdf_gimbal
 display_name: SDF sample gimbal
 
-scene_path: ""
-unit_scale: 1.0
-floor_offset_m: 0.0
-
-gimbal_node: ""
-gimbal_yaw_node: ""
-
-robot_description:
-  format: sdf
+asset:
   path: res://assets/robots/phase5_gimbal/robot.sdf
+
+gimbal:
   yaw_joint: gimbal_yaw_joint
   pitch_joint: gimbal_pitch_joint
-  camera_link: camera_link
-  camera_optical_frame: camera_optical_frame
 
+camera:
+  link: camera_link
+  optical_frame: camera_optical_frame
