@@ -20,8 +20,10 @@ const SCENARIO_DIR := "res://scenarios"
 const USER_SCENARIO_DIR := "user://scenarios"
 
 
-## Scenario path for this run (CLI -> config/app.yaml -> default).
-static func startup_scenario_path() -> String:
+## `--scenario=<path>` from the command line (after `--`), or "" when absent.
+## Kept separate from startup_scenario_path() so Main can put the persisted
+## AppSettings choice between the CLI and config/app.yaml.
+static func cli_scenario_path() -> String:
 	var args := OS.get_cmdline_user_args()
 	for i in args.size():
 		var arg := args[i]
@@ -29,12 +31,26 @@ static func startup_scenario_path() -> String:
 			return _resolve_path(arg.trim_prefix("--scenario="))
 		if arg == "--scenario" and i + 1 < args.size():
 			return _resolve_path(args[i + 1])
+	return ""
+
+
+## Scenario path for this run (CLI -> config/app.yaml -> default).
+static func startup_scenario_path() -> String:
+	var cli := cli_scenario_path()
+	if cli != "":
+		return cli
 	var app := _read_yaml_file(APP_CONFIG_PATH)
 	if app.get("ok", false):
 		var data: Variant = app.get("data", {})
 		if data is Dictionary and (data as Dictionary).has("scenario"):
 			return _resolve_path(String((data as Dictionary)["scenario"]))
 	return DEFAULT_SCENARIO_PATH
+
+
+## Public wrapper around the bare-name lookup (res:// / user://, with or
+## without the `.yaml` suffix).  Used by Main to validate a saved startup path.
+static func resolve_scenario_path(reference: String) -> String:
+	return _resolve_path(reference)
 
 
 ## Load + validate + normalize one scenario file.

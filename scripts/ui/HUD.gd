@@ -74,6 +74,12 @@ func set_stats(fps: float, frame_ms: float, yaw_deg: float, pitch_deg: float,
 ## Host the Main-owned scenario overlay under the HUD canvas.  Reparents the
 ## panel if it already has a parent, and raises it once so it draws above the
 ## other HUD widgets.
+## Point the status readout at the current ego after a world rebuild (scenario
+## switch / start page).  The HUD only reads the profile name from it.
+func set_ego(ego: EgoRig) -> void:
+	_ego = ego
+
+
 func attach_scenario_panel(panel: ScenarioPanel) -> void:
 	if _ui_root == null:
 		_build_ui()
@@ -134,6 +140,7 @@ func _controls_text() -> String:
 		+ tr("F8       reload scenario") + "\n"
 		+ tr("F9       next scenario") + "\n"
 		+ tr("Tab      scenario panel") + "\n"
+		+ tr("F7       settings") + "\n"
 		+ tr("F10      UI language") + "\n"
 		+ tr("Esc      back / quit")
 	)

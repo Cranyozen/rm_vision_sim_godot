@@ -115,6 +115,27 @@ const ZH_CN := {
 	"OPERATOR FPV": "操作员第一人称",
 	"FREE CAMERA": "自由相机",
 	"ROS: not started": "ROS: 未启动",
+
+	# --- Start page (startup configuration) -------------------------------
+	"RM VISION SIM": "RM VISION SIM",
+	"STARTUP CONFIGURATION": "启动配置",
+	"Robot model": "机器人模型",
+	"(scenario default)": "（跟随场景）",
+	"Remember as startup defaults": "记住为下次启动默认",
+	"START": "开始",
+	"SETTINGS": "设置",
+	"QUIT": "退出",
+	"Enter = start": "回车 = 开始",
+
+	# --- Settings page (startup defaults) ---------------------------------
+	"STARTUP DEFAULTS": "启动默认值",
+	"Self in feed": "自身入镜",
+	"Skip start screen on launch": "启动时跳过首页",
+	"RESET DEFAULTS": "恢复默认",
+	"Esc closes · changes are saved immediately": "Esc 关闭 · 修改立即保存",
+
+	# --- HUD: settings shortcut -------------------------------------------
+	"F7       settings": "F7       设置",
 }
 
 static var _installed := false

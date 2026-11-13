@@ -35,6 +35,8 @@ var _free_cam_pitch := 0.0
 var _free_speed := 4.0
 var _hud: HUD
 var _scenario_panel: ScenarioPanel
+var _start_screen: StartScreen
+var _settings_panel: SettingsPanel
 var _targets: Array[TargetRig] = []
 var _ros: RosBackend
 
@@ -59,6 +61,8 @@ var _ego_start_yaw := 0.0
 var _camera_preset := "qyg"
 var _sim_time := 0.0
 var _panel_open := false
+var _home_open := false
+var _settings_open := false
 var _last_scenario_error := ""
 
 
@@ -72,11 +76,14 @@ func _ready() -> void:
 	_build_debug_camera()
 	_build_fpv_camera()
 	_load_startup_scenario()
+	_apply_startup_settings()
 	_build_hud()
 	_build_scenario_panel()
 	_sync_cameras()
 	_build_ros()
+	_build_app_pages()
 	_update_stats()
+	_show_start_screen_if_needed()
 
 
 func _process(delta: float) -> void:
@@ -86,10 +93,10 @@ func _process(delta: float) -> void:
 	_step_target_motion()
 	_sync_panel_state()
 
-	if _free_camera_mode:
+	if _free_camera_mode and not _input_blocked():
 		_update_free_camera(delta)
-	else:
-		if not _panel_open:
+	elif not _free_camera_mode:
+		if not _input_blocked():
 			_update_operator(delta)
 			if _ros != null:
 				_ros.apply_commands(delta)
@@ -114,13 +121,40 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# F10 toggles the UI language and must keep working while the scenario panel
-	# owns input, so it is matched before the panel gate below.
+	# F10 (language) and F7 (settings) must keep working while any overlay owns
+	# input, so they are matched before the page gates below.
 	if event is InputEventKey:
-		var lang_key := event as InputEventKey
-		if lang_key.pressed and not lang_key.echo and lang_key.keycode == KEY_F10:
-			_toggle_ui_locale()
-			return
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo:
+			if key_event.keycode == KEY_F10:
+				_toggle_ui_locale()
+				return
+			if key_event.keycode == KEY_F7:
+				_toggle_settings_page()
+				return
+
+	# The settings page sits above the start page and closes back to it.
+	if _settings_open:
+		if event is InputEventKey:
+			var settings_key := event as InputEventKey
+			if settings_key.pressed and not settings_key.echo \
+					and settings_key.keycode == KEY_ESCAPE:
+				_close_settings_page()
+		return
+
+	# The start page owns every key but Enter (start) and Escape (quit).
+	if _home_open:
+		if event is InputEventKey:
+			var home_key := event as InputEventKey
+			if home_key.pressed and not home_key.echo:
+				if home_key.keycode == KEY_ENTER or home_key.keycode == KEY_KP_ENTER:
+					if _start_screen != null:
+						_start_screen.request_start()
+					return
+				if home_key.keycode == KEY_ESCAPE:
+					get_tree().quit()
+					return
+		return
 
 	# While the scenario panel is open it owns the pointer; only Tab / Escape
 	# are handled here.
@@ -244,9 +278,8 @@ func _reset_pose() -> void:
 	if _controller != null:
 		_controller.place(_ego_start, _ego_start_yaw)
 	_step_target_motion()
-	_self_fpv = false
+	_set_self_in_feed(AppSettings.self_in_feed())
 	_debug_camera.current = true
-	_feed_camera.cull_mask = 1
 	_sync_cameras()
 	_update_stats()
 
@@ -291,6 +324,10 @@ func _retranslate_ui() -> void:
 		_hud.retranslate()
 	if _scenario_panel != null:
 		_scenario_panel.update_state(_panel_state())
+	if _start_screen != null:
+		_start_screen.retranslate()
+	if _settings_panel != null:
+		_settings_panel.retranslate()
 	_update_stats()
 
 
@@ -333,7 +370,7 @@ func _set_fpv_mode(enabled: bool) -> void:
 	_fpv_mode = enabled
 	if enabled:
 		_fpv_camera.current = true
-		if not _panel_open:
+		if not _input_blocked():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -356,7 +393,7 @@ func _set_free_camera(enabled: bool) -> void:
 		_free_cam_yaw = _free_camera.rotation.y
 		_free_cam_pitch = clampf(_free_camera.rotation.x, -1.55, 1.55)
 		_free_camera.current = true
-		if not _panel_open:
+		if not _input_blocked():
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -392,10 +429,10 @@ func _update_free_camera(delta: float) -> void:
 # --- scenario lifecycle -----------------------------------------------------
 
 func _load_startup_scenario() -> void:
-	var path := ScenarioStore.startup_scenario_path()
+	var path := _startup_scenario_path()
 	var result := ScenarioStore.load_scenario(path)
 	if result.get("ok", false):
-		_scenario = result["data"]
+		_scenario = _with_startup_choices(result["data"], _startup_overrides())
 		_scenario_path = path
 		_report_scenario_messages(result)
 	else:
@@ -405,6 +442,62 @@ func _load_startup_scenario() -> void:
 		_scenario = _fallback_scenario()
 		_scenario_path = ""
 	_build_world(_scenario)
+
+
+## Scenario path for this run:
+##   `--scenario` CLI > saved `startup_scenario` > config/app.yaml > default.
+## A saved path that no longer exists is skipped with a warning, so a deleted
+## user:// scenario cannot stop the simulator from booting.
+func _startup_scenario_path() -> String:
+	var cli := ScenarioStore.cli_scenario_path()
+	if cli != "":
+		return cli
+	var saved := AppSettings.startup_scenario()
+	if saved != "":
+		var resolved := ScenarioStore.resolve_scenario_path(saved)
+		if FileAccess.file_exists(resolved):
+			return resolved
+		push_warning("Main: saved startup scenario '%s' is missing; using config/app.yaml"
+			% saved)
+	return ScenarioStore.startup_scenario_path()
+
+
+## AppSettings values applied on top of the normalized scenario.  Empty model /
+## camera values mean "follow the scenario YAML" (the scenario keeps owning the
+## world); ROS publish is the operator's start-up default.
+func _startup_overrides() -> Dictionary:
+	return {
+		"ego_model": AppSettings.ego_model(),
+		"camera_preset": AppSettings.camera_preset(),
+		"ros_publish": AppSettings.ros_publish(),
+	}
+
+
+## Copy the normalized scenario and patch in the start-up choices (robot model,
+## camera preset, ROS publish).  The scenario file itself is never modified.
+func _with_startup_choices(data: Dictionary, choices: Dictionary) -> Dictionary:
+	var out: Dictionary = data.duplicate(true)
+	var ego: Dictionary = out.get("ego", {})
+	var model := String(choices.get("ego_model", ""))
+	if model != "" and EgoModelConfig.model_ids().has(model):
+		ego["model"] = model
+	var camera: Dictionary = out.get("camera", {})
+	var preset := String(choices.get("camera_preset", ""))
+	if SimConfig.CAMERA_PRESETS.has(preset):
+		camera["preset"] = preset
+	var ros: Dictionary = out.get("ros", {})
+	ros["enabled"] = bool(choices.get("ros_publish", ros.get("enabled", true)))
+	out["ego"] = ego
+	out["camera"] = camera
+	out["ros"] = ros
+	return out
+
+
+## Settings that affect the live run rather than the scenario: self-in-feed is
+## applied before the HUD is built so the first frame already matches the
+## preference (F2 / the settings page toggle it later).
+func _apply_startup_settings() -> void:
+	_set_self_in_feed(AppSettings.self_in_feed())
 
 
 ## Load a scenario file and rebuild the world in place (UI / F8 / F9).
@@ -464,6 +557,10 @@ func _build_world(data: Dictionary) -> void:
 		_target_specs.append((spec as Dictionary).duplicate(true))
 	_build_targets(_target_specs)
 	_apply_camera_preset(_camera_preset)
+	# The HUD keeps an ego reference for its preset readout; a rebuild must not
+	# leave it pointing at the freed rig.
+	if _hud != null:
+		_hud.set_ego(_ego)
 
 
 func _clear_world() -> void:
@@ -592,7 +689,7 @@ func _sync_panel_state() -> void:
 
 
 func _toggle_scenario_panel() -> void:
-	if _scenario_panel == null:
+	if _scenario_panel == null or _home_open or _settings_open:
 		return
 	_set_scenario_panel_open(not _scenario_panel.is_open())
 
@@ -896,6 +993,198 @@ func _vec3(value: Variant, fallback: Vector3) -> Vector3:
 		var array := value as Array
 		return Vector3(float(array[0]), float(array[1]), float(array[2]))
 	return fallback
+
+
+# --- UI: start / settings pages ---------------------------------------------
+
+func _build_app_pages() -> void:
+	_start_screen = StartScreen.new()
+	_start_screen.name = "StartScreen"
+	add_child(_start_screen)
+	_start_screen.setup(ScenarioStore.list_scenarios(), _startup_choices())
+	_start_screen.start_requested.connect(_on_start_requested)
+	_start_screen.settings_requested.connect(_open_settings_page)
+	_start_screen.quit_requested.connect(_on_quit_requested)
+	_start_screen.language_changed.connect(_on_page_language_changed)
+
+	_settings_panel = SettingsPanel.new()
+	_settings_panel.name = "SettingsPanel"
+	add_child(_settings_panel)
+	_settings_panel.setup(_settings_values())
+	_settings_panel.setting_changed.connect(_on_setting_changed)
+	_settings_panel.reset_requested.connect(_on_settings_reset_requested)
+	_settings_panel.close_requested.connect(_close_settings_page)
+	_settings_panel.language_changed.connect(_on_page_language_changed)
+
+
+## Show the start page only on a bare interactive launch.  Passing any runtime
+## argument after `--` (`--scenario=...`, `--no-home`, ...) means "run this
+## directly", and `--script` checks / headless runs instantiate Main themselves
+## and must stay unobstructed.
+func _should_show_start_screen() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	for arg_value in OS.get_cmdline_args():
+		var arg := String(arg_value)
+		if arg == "--script" or arg == "-s":
+			return false
+	if not OS.get_cmdline_user_args().is_empty():
+		return false
+	return not AppSettings.skip_home()
+
+
+func _show_start_screen_if_needed() -> void:
+	if _should_show_start_screen():
+		print("Main: start page shown (Enter = start, F7 = settings)")
+		_set_home_open(true)
+	else:
+		print("Main: start page skipped (runtime args / script / headless / settings)")
+
+
+## Choices shown on the start page: the current world's scenario / ROS state
+## plus the persisted model / camera overrides ("" = follow the scenario).
+func _startup_choices() -> Dictionary:
+	return {
+		"scenario": _scenario_path,
+		"ego_model": AppSettings.ego_model(),
+		"camera_preset": AppSettings.camera_preset(),
+		"ros_publish": _ros != null and _ros.enabled,
+		"remember": false,
+	}
+
+
+func _set_home_open(open: bool) -> void:
+	if _start_screen == null:
+		return
+	_home_open = open
+	if open:
+		_start_screen.setup(ScenarioStore.list_scenarios(), _startup_choices())
+		_start_screen.set_error("")
+	_start_screen.set_open(open)
+	if open:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not _settings_open and (_fpv_mode or _free_camera_mode):
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_update_stats()
+
+
+## START on the start page: load the selected scenario with the chosen robot /
+## camera / ROS settings, rebuild the world and, when "remember" is ticked,
+## persist the choices as the next launch defaults.
+func _on_start_requested(choices: Dictionary) -> void:
+	var path := String(choices.get("scenario", ""))
+	if path == "":
+		path = _scenario_path
+	var result := ScenarioStore.load_scenario(path)
+	if not result.get("ok", false):
+		_last_scenario_error = "; ".join(PackedStringArray(result.get("errors", [])))
+		push_warning("Main: cannot start scenario '%s': %s" % [path, _last_scenario_error])
+		if _start_screen != null:
+			_start_screen.set_error(_last_scenario_error)
+		_update_stats()
+		return
+	_report_scenario_messages(result)
+	_scenario = _with_startup_choices(result["data"], choices)
+	_scenario_path = path
+	_last_scenario_error = ""
+	_build_world(_scenario)
+	_rebind_ros()
+	_refresh_scenario_list()
+	if bool(choices.get("remember", false)):
+		AppSettings.save_values({
+			AppSettings.KEY_STARTUP_SCENARIO: path,
+			AppSettings.KEY_EGO_MODEL: String(choices.get("ego_model", "")),
+			AppSettings.KEY_CAMERA_PRESET: String(choices.get("camera_preset", "")),
+			AppSettings.KEY_ROS_PUBLISH: bool(choices.get("ros_publish", true)),
+		})
+	_set_home_open(false)
+	_update_stats()
+
+
+func _on_quit_requested() -> void:
+	get_tree().quit()
+
+
+func _toggle_settings_page() -> void:
+	if _settings_open:
+		_close_settings_page()
+	else:
+		_open_settings_page()
+
+
+func _open_settings_page() -> void:
+	if _settings_panel == null:
+		return
+	if _panel_open:
+		_set_scenario_panel_open(false)
+	_settings_open = true
+	_settings_panel.setup(_settings_values())
+	_settings_panel.set_open(true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_update_stats()
+
+
+func _close_settings_page() -> void:
+	if _settings_panel == null:
+		return
+	_settings_open = false
+	_settings_panel.set_open(false)
+	if _home_open or _panel_open:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif _fpv_mode or _free_camera_mode:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_update_stats()
+
+
+## One settings row changed: persist it and apply the live ones.  The startup
+## defaults (robot model / camera preset / ROS publish / skip start page) take
+## effect on the next start or launch; self-in-feed is also reflected now.
+func _on_setting_changed(key: String, value: Variant) -> void:
+	AppSettings.save_values({key: value})
+	if key == AppSettings.KEY_SELF_IN_FEED:
+		_set_self_in_feed(bool(value))
+	_update_stats()
+
+
+func _on_settings_reset_requested() -> void:
+	AppSettings.reset()
+	if _settings_panel != null:
+		_settings_panel.setup(_settings_values())
+	_set_self_in_feed(AppSettings.self_in_feed())
+	_update_stats()
+
+
+func _settings_values() -> Dictionary:
+	return {
+		"locale": I18n.get_locale(),
+		"ego_model": AppSettings.ego_model(),
+		"camera_preset": AppSettings.camera_preset(),
+		"ros_publish": AppSettings.ros_publish(),
+		"self_in_feed": _self_fpv,
+		"skip_home": AppSettings.skip_home(),
+	}
+
+
+func _on_page_language_changed(locale: String) -> void:
+	I18n.set_locale(locale)
+	_retranslate_ui()
+
+
+func _set_self_in_feed(enabled: bool) -> void:
+	_self_fpv = enabled
+	if _feed_camera != null:
+		_feed_camera.cull_mask = 3 if enabled else 1
+	_update_stats()
+
+
+## True while any overlay page owns the pointer / keyboard: operator driving
+## and ROS command application pause, the world keeps rendering behind them.
+func _input_blocked() -> bool:
+	return _panel_open or _home_open or _settings_open
 
 
 # --- construction -----------------------------------------------------------
